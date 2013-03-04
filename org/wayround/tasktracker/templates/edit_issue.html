@@ -1,0 +1,35 @@
+<div>
+    % if mode == 'edit':
+    <div>Issue ID: ${issue_id|x}</div>
+    % endif
+    <form>
+        <div>
+            <div>Project:</div>
+            <input type="text" value="${project_name|x}" readonly="readonly" />
+            <input type="text" value="${project_title|x}" readonly="readonly" />
+        </div>
+        <div>
+            <div>Subject:</div>
+            <input type="text" name="title" value="${title|x}" />
+        </div>
+        <div>
+            <div>Priority:</div>
+            <input type="text" name="priority" value="${priority|x}" />
+        </div>
+        <div>
+            <div>Resolution:</div>
+            <input type="text" name="resolution" value="${resolution|x}" />
+        </div>
+        <div>
+            <div>Status:</div>
+            <input type="text" name="status" value="${status|x}" />
+        </div>
+        <div>
+            <div>Description:</div>
+            <textarea name="description">${description|x}</textarea>
+        </div>
+        <div>
+            <button type="submit">Save</button>
+        </div>
+    </form>
+</div>

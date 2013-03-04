@@ -49,17 +49,16 @@ def main(db_config, db_echo):
 
     rtenv = org.wayround.softengine.rtenv.RuntimeEnvironment(db)
 
-    org.wayround.softengine.modules.Nodes(rtenv)
-    org.wayround.softengine.modules.Users(rtenv)
-    org.wayround.softengine.modules.Groups(rtenv)
-    org.wayround.softengine.modules.GroupMemberships(rtenv)
-    org.wayround.softengine.modules.NodeAccesses(rtenv)
+    org.wayround.tasktracker.modules.TaskTracker(rtenv)
 
     rtenv.init()
 
     rtenv.db.create_all()
 
-    env = org.wayround.tasktracker.env.Environment(rtenv)
+    env = org.wayround.tasktracker.env.Environment(
+        rtenv,
+        admin_jid='animus@wayround.org'
+        )
 
     env.start()
 

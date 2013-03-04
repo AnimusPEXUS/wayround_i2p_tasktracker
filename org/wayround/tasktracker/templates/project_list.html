@@ -1,0 +1,13 @@
+<div>
+    % for i in projects:
+    <div>
+        <div>
+            <a href="/project/${ i.name | x }">${ i.title | x }</a>
+        </div>
+        <div>${ i.description | x }</div>
+        <div>
+            <a href="edit_project?name=${ i.name | x }">[Edit]</a>
+        </div>
+    </div>
+    % endfor
+</div>

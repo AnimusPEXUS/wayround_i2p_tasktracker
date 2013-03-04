@@ -1,0 +1,46 @@
+<div>
+    % if mode == 'edit': 
+    <span>Editing project ${ "`{}'".format(name) |x}</span> 
+    % elif mode == 'new': 
+    <span>Creating new project</span> 
+    % endif
+
+    <%
+    
+    action = None
+    if mode == 'edit':
+        action = 'edit_project'
+    elif mode == 'new':
+        action = 'new_project'
+    
+    %>
+
+    <form action="${action|x}" method="POST">
+        % if mode == 'new':
+        <div>
+            <div>Name (used internally and in URL. required. can not be changed farther):</div>
+            <div>
+                <input type="text" name="name" value="${name|x}" />
+            </div>
+        </div>
+        % elif mode == 'edit':
+        <div>Name can not be changed</div>
+        <input type="hidden" name="name" value="${name|x}" />
+        % endif
+        <div>
+            <div>Project Title (required):</div>
+            <div>
+                <input type="text" name="title" value="${title|x}" />
+            </div>
+        </div>
+        <div>
+            <div>Description (optional):</div>
+            <div>
+                <textarea name="description">${description|x}</textarea>
+            </div>
+        </div>
+        <div>
+            <button type="submit" name="submit" value="save">Save</button>
+        </div>
+    </form>
+</div>

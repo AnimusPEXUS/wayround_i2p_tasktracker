@@ -1,0 +1,18 @@
+<div>
+
+    % if status == 'authenticated':
+    <div>You are currently authenticated as ${ jid | x }</div>
+    <div>
+        <a href="/logout">Logout</a>
+    </div>
+    % elif status == 'anonymous':
+    <div>
+        You are currently not authenticated. You can try to <a href="/login">Login</a>
+        or <a href="/register">Register</a>
+    </div>
+    % endif 
+    
+    Your <span title="${ session_cookie | x }" style="text-decoration: underline;">session cookie</span> 
+    valid till ${session_valid_till | x }
+
+</div>
