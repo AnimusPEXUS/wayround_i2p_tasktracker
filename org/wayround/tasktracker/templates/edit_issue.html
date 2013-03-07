@@ -1,33 +1,117 @@
-<div>
-    % if mode == 'edit':
-    <div>Issue ID: ${issue_id|x}</div>
-    % endif
-    <form>
+<%
+action = ''
+
+display_settings = 'none'
+display_editor = 'none'
+display_view = 'none'
+
+
+if mode == 'view':
+    action = 'edit_issue'
+    
+    display_view = 'block'
+
+elif mode == 'new':
+    action = 'new_issue'
+
+    display_settings = 'block'
+    display_editor = 'block'
+
+%>
+
+<div>Project:</div>
+<div>${project_name|x}</div>
+<div>${project_title|x}</div>
+
+% if mode == 'view':
+
+<div>Issue ID: ${issue_id|x}</div>
+<div>Created at: ${created_date|x}</div>
+<div>Last updated at: ${updated_date|x}</div>
+
+<div style="display: ${display_view| x}">
+    <div>
+        <div>Subject:</div>
+        <div>${title|x}</div>
+    </div>
+    <div>
+        <div>Priority:</div>
+        ${ priority }
+    </div>
+    <div>
+        <div>Resolution:</div>
+        ${ resolution }
+    </div>
+    <div>
+        <div>Status:</div>
+        ${ status }
+    </div>
+    <div>
+        <div>Assigned to:</div>
+        <div>${assigned_to|x}</div>
+    </div>
+    <div>
+        <div>Watchers:</div>
+        <div>${watchers|x}</div>
+    </div>
+    <div>
+        <div>Description:</div>
+        <div>${description|x}</div>
+    </div>
+    <div>
+        <div>Comments/Updates:</div>
+        <div>${comments|x}</div>
+    </div>
+    <div>
+        <button type="button" onclick="var a = document.getElementById('issue_editor'); if (a.style.display=='block') { a.style.display='none' } else { a.style.display='block' }">Comment or Update Issue Controls</button>
+    </div>
+</div>
+% endif
+<div style="display: ${display_editor| x}" id="issue_editor">
+    <form method="POST" action="${ action | x }">
+        <input type="hidden" name="project_name" value="${project_name|x}" />
+        % if mode == 'view':
+        <input type="hidden" name="issue_id" value="${issue_id|x}" />
         <div>
-            <div>Project:</div>
-            <input type="text" value="${project_name|x}" readonly="readonly" />
-            <input type="text" value="${project_title|x}" readonly="readonly" />
+            <button type="button" onclick="var a = document.getElementById('setting_elements'); if (a.style.display=='block') { a.style.display='none' } else { a.style.display='block' }">Update Issue Controls</button>
         </div>
+        % endif
+        <div style="display: ${display_settings| x}" id="setting_elements">
+            <div>
+                <div>Subject:</div>
+                <input type="text" name="title" value="${title|x}" />
+            </div>
+            <div>
+                <div>Priority:</div>
+                ${ priority_selector }
+            </div>
+            <div>
+                <div>Resolution:</div>
+                ${ resolution_selector }
+            </div>
+            <div>
+                <div>Status:</div>
+                ${ status_selector }
+            </div>
+            <div>
+                <div>Assigned to:</div>
+                <textarea name="assigned_to">${assigned_to|x}</textarea>
+            </div>
+            <div>
+                <div>Watchers:</div>
+                <textarea name="watchers">${watchers|x}</textarea>
+            </div>
+            <div>
+                <div>Description:</div>
+                <textarea name="description">${description|x}</textarea>
+            </div>
+        </div>
+        % if mode == 'view':
         <div>
-            <div>Subject:</div>
-            <input type="text" name="title" value="${title|x}" />
+            <div>Comment:</div>
+            <textarea name="comment">${comment|x}</textarea>
         </div>
-        <div>
-            <div>Priority:</div>
-            <input type="text" name="priority" value="${priority|x}" />
-        </div>
-        <div>
-            <div>Resolution:</div>
-            <input type="text" name="resolution" value="${resolution|x}" />
-        </div>
-        <div>
-            <div>Status:</div>
-            <input type="text" name="status" value="${status|x}" />
-        </div>
-        <div>
-            <div>Description:</div>
-            <textarea name="description">${description|x}</textarea>
-        </div>
+        % endif
         <div>
             <button type="submit">Save</button>
         </div>

@@ -12,6 +12,20 @@ ttm = 'org_wayround_tasktracker_modules_TaskTracker'
 session_cookie_name = 'org_wayround_tasktracker_session_cookie'
 session_lifetime = 24 * 60 * 60
 
+SITE_ROLES = [
+    'admin', 'user', 'guest'
+    ]
+
+PRIORITIES = list('123456789')
+
+STATUSES = ['open', 'closed', 'deleted']
+
+RESOLUTIONS = [
+    'None', 'More Data Required', 'Resolved',
+    'Wrong', "Wont Fix", 'Duplicated', 'Duplicates',
+    'Paused'
+    ]
+
 class PageAction:
 
     def __init__(self, title, href):
@@ -52,8 +66,9 @@ class Environment:
 
         self.app.route('/project/<project_name>/new_issue', 'GET', self.new_issue)
         self.app.route('/project/<project_name>/new_issue', 'POST', self.new_issue_post)
-        self.app.route('/project/<project_name>/edit_issue', 'GET', self.edit_issue)
-        self.app.route('/project/<project_name>/edit_issue', 'POST', self.edit_issue_post)
+
+        self.app.route('/project/<project_name>/<issue_id:int>', 'GET', self.view_issue)
+        self.app.route('/project/<project_name>/<issue_id:int>', 'post', self.edit_issue_post)
 
     def get_actions(self, mode=None, project_name=None):
 
@@ -89,7 +104,11 @@ class Environment:
             s = self.rtenv.modules[ttm].get_session_by_cookie(
                 bottle.request.cookies.get(session_cookie_name, None)
                 )
-            self.rtenv.modules[ttm].renew_session(s)
+            if s:
+                self.rtenv.modules[ttm].renew_session(s)
+            else:
+                s = self.rtenv.modules[ttm].new_session()
+                bottle.response.set_cookie(session_cookie_name, s.session_cookie)
 
         return s
 
@@ -97,21 +116,32 @@ class Environment:
 
         ret = ''
 
-        if session == None or session.jid == None:
+        if session == None:
             ret = self.rtenv.modules[ttm].session_tpl(
                 status='anonymous',
-                jid='',
-                session_cookie=session.session_cookie,
-                session_valid_till=session.session_valid_till
+                jid='"Not JID"',
+                session_cookie='XXX',
+                session_valid_till="Something wrong with your cookie. "
+                    "Must be You are the first time here"
                 )
+
         else:
 
-            ret = self.rtenv.modules[ttm].session_tpl(
-                status='authenticated',
-                jid=session.jid,
-                session_cookie=session.session_cookie,
-                session_valid_till=session.session_valid_till
-                )
+            if session.jid != None:
+                ret = self.rtenv.modules[ttm].session_tpl(
+                    status='authenticated',
+                    jid=session.jid,
+                    session_cookie=session.session_cookie,
+                    session_valid_till=session.session_valid_till
+                    )
+
+            else:
+                ret = self.rtenv.modules[ttm].session_tpl(
+                    status='anonymous',
+                    jid='',
+                    session_cookie=session.session_cookie,
+                    session_valid_till=session.session_valid_till
+                    )
 
         return ret
 
@@ -156,15 +186,17 @@ class Environment:
 
         self.rtenv.modules[ttm].assign_jid_to_session(s, jid)
 
-        bottle.response.status = 301
+        bottle.response.status = 303
         bottle.response.set_header('Location', '/')
+#        bottle.response.set_header('Cache-Control', 'no-cache')
 
         return
 
     def logout(self):
         bottle.response.delete_cookie(session_cookie_name)
-        bottle.response.status = 301
+        bottle.response.status = 303
         bottle.response.set_header('Location', '/')
+#        bottle.response.set_header('Cache-Control', 'no-cache')
 #        bottle.redirect('/', code=200)
 
     def root_view(self):
@@ -318,12 +350,34 @@ class Environment:
 
             issues = self.rtenv.modules[ttm].get_project_issues(project_name)
 
-            issue_list = self.rtenv.modules[ttm].issue_list_tpl(issues)
+            opened = []
+            closed = []
+            deleted = []
+
+            for i in issues:
+                if i.status == 'open':
+                    opened.append(i)
+
+                if i.status == 'closed':
+                    closed.append(i)
+
+                if i.status == 'deleted':
+                    deleted.append(i)
+
+            open_table = self.rtenv.modules[ttm].issue_teaser_table_tpl(opened)
+            closed_table = self.rtenv.modules[ttm].issue_teaser_table_tpl(closed)
+            deleted_table = self.rtenv.modules[ttm].issue_teaser_table_tpl(deleted)
+
+            project_page = self.rtenv.modules[ttm].project_page_tpl(
+                open_issue_table=open_table,
+                closed_issue_table=closed_table,
+                deleted_issue_table=deleted_table
+                )
 
             ret = self.rtenv.modules[ttm].html_tpl(
                 title="`{}' issues".format(p.title),
                 actions=actions,
-                body=issue_list
+                body=project_page
                 )
 
         return ret
@@ -357,63 +411,98 @@ class Environment:
 
         return ret
 
-    def new_issue_post(self):
+    def new_issue_post(self, project_name):
 
         for i in [
-            'issue_id',
             'project_name',
-            'project_title',
             'title',
             'priority',
             'status',
             'resolution',
-            'description'
+            'description',
+            'assigned_to',
+            'watchers'
             ]:
             if not i in bottle.request.params:
                 raise KeyError("parameter `{}' must be passed".format(i))
 
-        name = bottle.request.params['name']
-        title = bottle.request.params['title']
-        description = bottle.request.params['description']
+        #        name = bottle.request.params['name']
+
+        if not project_name == bottle.request.params['project_name']:
+            raise bottle.HTTPError(400, "Wrong project_name parameter")
 
 
         self.rtenv.modules[ttm].new_issue(
-            name, title, description
+            project_name=bottle.request.params['project_name'],
+            title=bottle.request.params['title'],
+            priority=bottle.request.params['priority'],
+            status=bottle.request.params['status'],
+            resolution=bottle.request.params['resolution'],
+            description=bottle.request.params['description']
             )
 
         ret = self.rtenv.modules[ttm].html_tpl(
-            title="Project creation result",
+            title="Issue creation result",
             actions='',
             body=''
             )
 
         return ret
 
-    def edit_issue(self):
+    def view_issue(self, project_name, issue_id):
 
         ret = ''
 
-        for i in ['name']:
-            if not i in bottle.request.params:
-                raise KeyError("parameter `{}' must be passed".format(i))
+        project = self.rtenv.modules[ttm].get_project(project_name)
+        issue = self.rtenv.modules[ttm].get_issue(issue_id)
 
-        name = bottle.request.params['name']
-
-        p = self.rtenv.modules[ttm].get_issue(name)
-
-        if not p:
+        if not project:
             raise bottle.HTTPError(404, body="Project not found")
 
+        elif not issue:
+            raise bottle.HTTPError(404, body="Issue not found")
+
+        elif project_name != issue.project_name:
+            raise bottle.HTTPError(404, body="Selected issue is not belongings to selected project")
+
         else:
+
             actions = self.rtenv.modules[ttm].actions_tpl(
-                self.get_actions(mode='index')
+                self.get_actions(mode='project', project_name=project_name)
                 )
 
+
+            people = {}
+
+            for i in ['worker', 'watcher']:
+
+                t = self.rtenv.db.sess.query(
+                    self.rtenv.models[ttm]['IssueRole']
+                    ).filter_by(issue_id=issue.issue_id, role=i).all()
+
+                people[i] = []
+
+                for j in t:
+                    people[i].append(i.jid)
+
+                people[i].sort()
+
             edit_issue_tpl = self.rtenv.modules[ttm].edit_issue_tpl(
-                mode='edit',
-                name=name,
-                title=p.title,
-                description=p.description
+                mode='view',
+                issue_id=issue.issue_id,
+                project_name=issue.project_name,
+                project_title=project.title,
+                title=issue.title,
+                priority=issue.priority,
+                status=issue.status,
+                resolution=issue.resolution,
+                description=issue.description,
+                assigned_to='{}\n'.format('\n'.join(people['worker'])),
+                watchers='{}\n'.format('\n'.join(people['watcher'])),
+                created_date=issue.creation_date,
+                updated_date=issue.updation_date,
+                comments='',
+                comment=''
                 )
 
             ret = self.rtenv.modules[ttm].html_tpl(
@@ -449,7 +538,6 @@ class Environment:
             self.rtenv.db.sess.commit()
 
         return ret
-
 
 
 def install_launcher(path):

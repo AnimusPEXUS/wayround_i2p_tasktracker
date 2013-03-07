@@ -4,6 +4,8 @@ import random
 import hashlib
 import datetime
 
+import bottle
+
 import sqlalchemy
 import sqlalchemy.orm.exc
 
@@ -162,6 +164,23 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
                 default=None
                 )
 
+        class SiteRole(self.rtenv.db.db_base):
+
+            __tablename__ = self.module_name + '_SiteRoles'
+
+            jid = sqlalchemy.Column(
+                sqlalchemy.UnicodeText,
+                primary_key=True,
+                nullable=True,
+                default=None
+                )
+
+            role = sqlalchemy.Column(
+                sqlalchemy.UnicodeText,
+                nullable=True,
+                default=None
+                )
+
 
         class ProjectRole(self.rtenv.db.db_base):
 
@@ -218,20 +237,31 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             'Session': Session,
             }
 
-        self.rtenv.templates[self.module_name] = {
-            'html': Template(filename=os.path.join(template_dir, 'xhtml5.html')),
-            'register': Template(filename=os.path.join(template_dir, 'register.html')),
-            'login': Template(filename=os.path.join(template_dir, 'login.html')),
-#            'admin': Template(filename=os.path.join(template_dir, 'admin.html')),
-            'project_page': Template(filename=os.path.join(template_dir, 'project_page.html')),
-            'project_list': Template(filename=os.path.join(template_dir, 'project_list.html')),
-            'issue_list': Template(filename=os.path.join(template_dir, 'issue_list.html')),
-            'edit_issue': Template(filename=os.path.join(template_dir, 'edit_issue.html')),
-            'edit_project': Template(filename=os.path.join(template_dir, 'edit_project.html')),
-#            'issue_comments': Template(filename=os.path.join(template_dir, 'issue_comments.html')),
-            'actions': Template(filename=os.path.join(template_dir, 'actions.html')),
-            'session': Template(filename=os.path.join(template_dir, 'session.html')),
-            }
+        self.rtenv.templates[self.module_name] = {}
+
+        for i in [
+            'html',
+            'register',
+            'login',
+            'admin',
+            'project_page',
+            'project_list',
+            'issue_teaser',
+            'issue_teaser_table',
+            'edit_issue',
+            'edit_project',
+            'issue_comments',
+            'actions',
+            'session',
+            'issue_teaser',
+            'selector_priority',
+            'selector_status',
+            'selector_resolution'
+            ]:
+            self.rtenv.templates[self.module_name][i] = Template(
+                filename=os.path.join(template_dir, '{}.html'.format(i)),
+                format_exceptions=True
+                )
 
     def html_tpl(self, title, actions, body, session=''):
         return self.rtenv.templates[self.module_name]['html'].render(
@@ -241,8 +271,61 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
     def register_tpl(self):
         return self.rtenv.templates[self.module_name]['register'].render()
 
+    def issue_teaser_tpl(self, project_name='', ide='', caption='', resolution='', assigned=''):
+        return self.rtenv.templates[self.module_name]['issue_teaser'].render(
+            project_name=project_name, ide=ide, caption=caption,
+            resolution=resolution, assigned=assigned
+            )
+
+    def issue_teaser_table_tpl(self, issue_records):
+
+        teasers = []
+
+        for i in issue_records:
+
+            assigned = ''
+
+            issue_roles = self.rtenv.db.sess.query(
+                self.rtenv.models[self.module_name]['IssueRole']
+                ).filter_by(issue_id=i.issue_id).all()
+
+            if len(issue_roles) == 0:
+                assigned = 'No one'
+            elif len(issue_roles) == 1:
+                assigned = issue_roles[0].jid
+            else:
+                assigned = "{} people".format(len(issue_roles))
+
+            teasers.append(
+                self.issue_teaser_tpl(
+                    project_name=i.project_name,
+                    ide=i.issue_id,
+                    caption=i.title,
+                    resolution=i.resolution,
+                    assigned=assigned
+                    )
+                )
+
+        ret = self.rtenv.templates[self.module_name]['issue_teaser_table'].render(
+            teasers=teasers
+            )
+
+        return ret
+
     def login_tpl(self):
         return self.rtenv.templates[self.module_name]['login'].render()
+
+    def project_page_tpl(
+        self,
+        open_issue_table='',
+        closed_issue_table='',
+        deleted_issue_table=''
+        ):
+        return self.rtenv.templates[self.module_name]['project_page'].render(
+            open_issue_table=open_issue_table,
+            closed_issue_table=closed_issue_table,
+            deleted_issue_table=deleted_issue_table
+            )
 
     def project_list_tpl(self, projects):
         return self.rtenv.templates[self.module_name]['project_list'].render(
@@ -287,6 +370,36 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             mode=mode, name=name, title=title, description=description
             )
 
+    def issue_priority_selector_tpl(self, select):
+
+        if not select in org.wayround.tasktracker.env.PRIORITIES:
+            raise ValueError("Wrong priority `select' value")
+
+        return self.rtenv.templates[self.module_name]['selector_priority'].render(
+            selected=select,
+            options=org.wayround.tasktracker.env.PRIORITIES
+            )
+
+    def issue_status_selector_tpl(self, selected):
+
+        if not selected in org.wayround.tasktracker.env.STATUSES:
+            raise ValueError("Wrong status `selected' value")
+
+        return self.rtenv.templates[self.module_name]['selector_status'].render(
+            selected=selected,
+            options=org.wayround.tasktracker.env.STATUSES
+            )
+
+    def issue_resolution_selector_tpl(self, selected):
+
+        if not selected in org.wayround.tasktracker.env.RESOLUTIONS:
+            raise ValueError("Wrong resolution `selected' value")
+
+        return self.rtenv.templates[self.module_name]['selector_resolution'].render(
+            selected=selected,
+            options=org.wayround.tasktracker.env.RESOLUTIONS
+            )
+
     def edit_issue_tpl(
             self,
             mode='new',
@@ -294,13 +407,19 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             project_name='',
             project_title='',
             title='',
-            priority='',
-            status='',
-            resolution='',
-            description=''
+            priority='5',
+            status='open',
+            resolution='None',
+            description='',
+            assigned_to='',
+            watchers='',
+            created_date='',
+            updated_date='',
+            comments='',
+            comment=''
             ):
 
-        if not mode in ['new', 'edit']:
+        if not mode in ['new', 'view']:
             raise ValueError("Wrong mode value: `{}'".format(mode))
 
         return self.rtenv.templates[self.module_name]['edit_issue'].render(
@@ -309,10 +428,19 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             project_name=project_name,
             project_title=project_title,
             title=title,
+            priority_selector=self.issue_priority_selector_tpl(priority),
+            status_selector=self.issue_status_selector_tpl(status),
+            resolution_selector=self.issue_resolution_selector_tpl(resolution),
+            description=description,
+            assigned_to=assigned_to,
+            watchers=watchers,
             priority=priority,
             status=status,
             resolution=resolution,
-            description=description
+            created_date=created_date,
+            updated_date=updated_date,
+            comments=comments,
+            comment=comment
             )
 
     def get_random_bytes(self):
@@ -341,7 +469,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
     def _get_session_by_x(self, data, what='jid'):
 
         if not what in ['jid', 'cookie']:
-            raise ValueError("Wronf `what' parameter")
+            raise ValueError("Wrong `what' parameter")
 
         self.cleanup_sessions()
 
@@ -398,10 +526,11 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             session, self.rtenv.models[self.module_name]['Session']
             ):
             raise TypeError(
-                "must be of type `{}'".format(
+                "`session' parameter must be of type `{}', but it is `{}'".format(
                     type(
                         self.rtenv.models[self.module_name]['Session']
-                        )
+                        ),
+                    session
                     )
                 )
 
@@ -504,6 +633,17 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         return i
 
+    def get_issue(self, issue_id):
+        p = None
+        try:
+            p = self.rtenv.db.sess.query(
+                self.rtenv.models[self.module_name]['Issue']
+                ).filter_by(issue_id=issue_id).one()
+        except sqlalchemy.orm.exc.NoResultFound:
+            pass
+
+        return p
+
     def new_project(self, name, title, description):
 
         p = None
@@ -528,7 +668,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         self.rtenv.db.sess.commit()
 
-        return
+        return p
 
     def edit_project(self, name, title, description):
 
@@ -543,7 +683,66 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         if not p:
             raise EditingNotExistingProject(
-                "Trying to edit not existing project"
+                "Trying to edit non-existing project"
+                )
+
+        else:
+            p.title = title
+            p.description = description
+
+        self.rtenv.db.sess.commit()
+
+        return p
+
+    def new_issue(
+        self,
+        project_name,
+        title,
+        priority,
+        status,
+        resolution,
+        description
+        ):
+
+        try:
+            self.rtenv.db.sess.query(
+                self.rtenv.models[self.module_name]['Project']
+                ).filter_by(name=project_name).one()
+        except sqlalchemy.orm.exc.NoResultFound:
+            raise bottle.HTTPError(400, "Corresponding project not found")
+
+        date = datetime.datetime.now()
+
+        issue = self.rtenv.models[self.module_name]['Issue']()
+        issue.project_name = project_name
+        issue.title = title
+        issue.priority = priority
+        issue.status = status
+        issue.resolution = resolution
+        issue.description = description
+        issue.creation_date = date
+        issue.updation_date = None
+
+        self.rtenv.db.sess.add(issue)
+
+        self.rtenv.db.sess.commit()
+
+        return issue
+
+    def edit_issue(self, name, title, description):
+
+        p = None
+        try:
+            p = self.rtenv.db.sess.query(
+                self.rtenv.models[self.module_name]['Project']
+                ).filter_by(name=name).one()
+
+        except sqlalchemy.orm.exc.NoResultFound:
+            pass
+
+        if not p:
+            raise EditingNotExistingProject(
+                "Trying to edit not existing issue"
                 )
 
         else:
