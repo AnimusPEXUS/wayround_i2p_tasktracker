@@ -1,11 +1,16 @@
-<div>
-
-    % for i in actions:
-
-    <div>
-        <a href="${i.href|x}">${i.title|x}</a>
-    </div>
-
-    %endfor
-
+<div id="page_actions_list">
+    <table id="actions_table">
+        <tr>
+            <td>
+                % for i in actions:
+                <div class="page_actions_list_item">
+                    <a href="${i.href|x}">${i.title|x}</a>
+                </div> 
+                %endfor
+            </td>
+            <td id="actions_session_td">
+                ${ session_actions }
+            </td>
+        </tr>
+    </table>
 </div>

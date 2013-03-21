@@ -1,16 +1,17 @@
-<div>
+<%
+title = "Session Cookie: {}\nValid Till: {}".format(rts_object.id, rts_object.session_valid_till)
+%><div>
 
-    % if status == 'authenticated':
+    % if rts_object.jid:
     <div>
-        You are currently authenticated as <strong>${ jid | x }</strong> <a href="/logout">Logout</a>
+        <strong title="${ title | x }">${ rts_object.jid | x }</strong> <a href="/logout">Logout</a>
     </div>
-    % elif status == 'anonymous':
+    % else:
     <div>
-        You are currently <strong>not authenticated</strong>. You can try to <a href="/login">Login</a>
-        or <a href="/register">Register</a>
+        <strong title="${ title | x }">Guest</strong>
+        <a href="/login">Login</a>
+        <a href="/register">Register</a>
     </div>
     % endif 
-    Your <span title="${ session_cookie | x }" style="text-decoration: underline;">session cookie</span> valid till
-    ${session_valid_till | x }
 
 </div>

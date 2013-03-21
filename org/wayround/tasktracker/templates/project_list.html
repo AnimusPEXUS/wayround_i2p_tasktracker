@@ -1,13 +1,12 @@
 <div>
-    % for i in projects:
-    <div>
-        <div>
-            <a href="/project/${ i.name | x }">${ i.title | x }</a>
-        </div>
-        <div>${ i.description | x }</div>
-        <div>
-            <a href="edit_project?name=${ i.name | x }">[Edit]</a>
-        </div>
-    </div>
-    % endfor
+    <table>
+        % for i in projects:
+        <tr>
+            <td><a href="/project/${ i.name | x }">${ i.title | x }</a></td>
+            <td>
+                <div>${ i.description | x }</div>
+            </td>
+        </tr>
+        % endfor
+    </table>
 </div>

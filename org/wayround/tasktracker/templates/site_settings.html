@@ -1,0 +1,46 @@
+<%
+user_can_register_self_checked = ''
+
+if user_can_register_self:
+    user_can_register_self_checked = ' checked="checked" '
+    
+user_can_create_projects_checked = ''
+
+if user_can_create_projects:
+    user_can_create_projects_checked = ' checked="checked" '
+    
+user_can_register_in_projects_checked = ''
+
+if user_can_register_in_projects:
+    user_can_register_in_projects_checked = ' checked="checked" '
+
+%><div>
+    <form method="POST" action="">
+        <div>
+            <div>Site Title:</div>
+            <div>
+                <input type="text" name="site_title" value="${site_title|x}" />
+            </div>
+        </div>
+        <div>
+            <div>Site Description:</div>
+            <div>
+                <textarea name="site_description">${site_description|x}</textarea>
+            </div>
+        </div>
+        <div>
+            <div>User Autoregistration Allowed:</div>
+            <div>
+                <input type="checkbox" name="user_can_register_self" ${user_can_register_self_checked} />
+            </div>
+        </div>
+        <div>
+            <div>Users Allowed Projects Creation:</div>
+            <div>
+                <input type="checkbox" name="user_can_create_projects" ${user_can_create_projects_checked} />
+            </div>
+        </div>
+
+        <button type="submit">Save</button>
+    </form>
+</div>

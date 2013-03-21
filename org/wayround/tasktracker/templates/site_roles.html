@@ -1,0 +1,21 @@
+<div>
+    <form method="POST" action="">
+        <table>
+            <tr>
+                <th>Admins</th>
+                <th>Moderators</th>
+                <th>Users</th>
+                <th>blocked</th>
+            </tr>
+            <tr>
+                <td><textarea name="admins">${ admins | x }</textarea></td>
+                <td><textarea name="moders">${ moders | x }</textarea></td>
+                <td><textarea name="users">${ users | x }</textarea></td>
+                <td><textarea name="blocked">${ blocked | x }</textarea></td>
+            </tr>
+        </table>
+        <div>
+            <button type="submit">Save</button>
+        </div>
+    </form>
+</div>

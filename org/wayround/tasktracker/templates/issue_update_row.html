@@ -1,0 +1,96 @@
+<%
+
+show_title_change = False
+show_status_change = False
+show_priority_change = False
+show_resolution_change = False
+show_assigned_to = False
+show_watchers = False
+show_description = False
+
+if title_old != title:
+    show_title_change = True
+
+if status_old != status:
+    show_status_change = True
+
+if priority_old != priority:
+    show_priority_change = True
+    
+if resolution_old != resolution:
+    show_resolution_change = True
+
+if assigned_to_diff != 'None':
+    show_assigned_to = True
+
+if watchers_diff != 'None':
+    show_watchers = True
+
+if description_diff != 'None':
+    show_description = True
+    
+%><tr>
+    <td>
+        <table id="issue_page_updates_table_level2">
+            <tr>
+                <td>${ date | x }</td>
+                <td>
+                    <table>
+                        % if show_title_change:
+                        <tr>
+                            <td>Title:</td>
+                            <td>${ title_old | x }</td>
+                            <td>${ title | x }</td>
+                        </tr>
+                        % endif 
+                        % if show_status_change:
+                        <tr>
+                            <td>Status:</td>
+                            <td>${ status_old | x }</td>
+                            <td>${ status | x }</td>
+                        </tr>
+                        % endif 
+                        % if show_priority_change:
+                        <tr>
+                            <td>Priority:</td>
+                            <td>${ priority_old | x }</td>
+                            <td>${ priority | x }</td>
+                        </tr>
+                        % endif 
+                        % if show_resolution_change:
+                        <tr>
+                            <td>Resolution:</td>
+                            <td>${ resolution_old | x }</td>
+                            <td>${ resolution | x }</td>
+                        </tr>
+                        % endif
+                        % if show_assigned_to:
+                        <tr>
+                            <td>Assigned to:</td>
+                            <td colspan="2"><pre class="console_shot">${ assigned_to_diff }</pre></td>
+                        </tr>
+                        % endif
+                        % if show_watchers:
+                        <tr>
+                            <td>Watchers:</td>
+                            <td colspan="2"><pre class="console_shot">${ watchers_diff }</pre></td>
+                        </tr>
+                        % endif
+                        % if show_description:
+                        <tr>
+                            <td>Description:</td>
+                            <td colspan="2"><pre class="console_shot">${ description_diff }</pre></td>
+                        </tr>
+                        % endif
+                    </table>
+                </td>
+                % if len(comment) > 0:
+                <td><div class="control_title_normal">Comment:</div>
+                    <div>${comment|x}</div></td>
+                % else:
+                <td></td>
+                % endif
+            </tr>
+        </table>
+    </td>
+</tr>

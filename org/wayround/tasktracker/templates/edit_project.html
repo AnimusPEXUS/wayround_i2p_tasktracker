@@ -1,20 +1,22 @@
-<div>
+<%
+    
+action = None
+if mode == 'edit':
+    action = 'edit_project'
+elif mode == 'new':
+    action = 'new_project'
+    
+guests_access_allowed_checked = ''
+
+if guests_access_allowed: 
+    guests_access_allowed_checked = ' checked="checked" '
+    
+%><div>
     % if mode == 'edit': 
     <span>Editing project ${ "`{}'".format(name) |x}</span> 
     % elif mode == 'new': 
     <span>Creating new project</span> 
     % endif
-
-    <%
-    
-    action = None
-    if mode == 'edit':
-        action = 'edit_project'
-    elif mode == 'new':
-        action = 'new_project'
-    
-    %>
-
     <form action="${action|x}" method="POST">
         % if mode == 'new':
         <div>
@@ -37,6 +39,20 @@
             <div>Description (optional):</div>
             <div>
                 <textarea name="description">${description|x}</textarea>
+            </div>
+        </div>
+        <div>
+            <div>Guests Access Allowed:</div>
+            <div>
+                <input type="checkbox" name="guests_access_allowed" ${ guests_access_allowed_checked }/>
+            </div>
+            <div class="description">
+                <p>In all cases, posting allowed to confirmed non-blocked
+                    members</p>
+                <p>
+                    If <strong>Guests Access Allowed</strong> is checked, guests
+                    allowed to access project and read issues.
+                </p>
             </div>
         </div>
         <div>

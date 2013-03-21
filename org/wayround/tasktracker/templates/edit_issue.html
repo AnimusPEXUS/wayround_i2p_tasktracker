@@ -2,12 +2,11 @@
 action = ''
 
 display_settings = 'none'
-display_editor = 'none'
 display_view = 'none'
 
 
 if mode == 'view':
-    action = 'edit_issue'
+    action = str(issue_id)
     
     display_view = 'block'
 
@@ -15,65 +14,102 @@ elif mode == 'new':
     action = 'new_issue'
 
     display_settings = 'block'
-    display_editor = 'block'
 
 %>
-
-<div>Project:</div>
-<div>${project_name|x}</div>
-<div>${project_title|x}</div>
-
 % if mode == 'view':
 
-<div>Issue ID: ${issue_id|x}</div>
-<div>Created at: ${created_date|x}</div>
-<div>Last updated at: ${updated_date|x}</div>
-
-<div style="display: ${display_view| x}">
+<div id="issue_page_issue_view_main_div" style="display: ${display_view| x}">
     <div>
-        <div>Subject:</div>
-        <div>${title|x}</div>
-    </div>
-    <div>
-        <div>Priority:</div>
-        ${ priority }
-    </div>
-    <div>
-        <div>Resolution:</div>
-        ${ resolution }
-    </div>
-    <div>
-        <div>Status:</div>
-        ${ status }
-    </div>
-    <div>
-        <div>Assigned to:</div>
-        <div>${assigned_to|x}</div>
-    </div>
-    <div>
-        <div>Watchers:</div>
-        <div>${watchers|x}</div>
-    </div>
-    <div>
-        <div>Description:</div>
-        <div>${description|x}</div>
-    </div>
-    <div>
-        <div>Comments/Updates:</div>
-        <div>${comments|x}</div>
-    </div>
-    <div>
-        <button type="button" onclick="var a = document.getElementById('issue_editor'); if (a.style.display=='block') { a.style.display='none' } else { a.style.display='block' }">Comment or Update Issue Controls</button>
+        <table id="issue_page_issue_view_main_table">
+            <tr>
+                <td colspan="2">
+                    <div>
+                        <div class="control_title_normal">Issue ID:</div>
+                        <div id="issue_page_issue_id">${'#'+str(issue_id)|x}:</div>
+                        <div id="issue_page_issue_title">${title|x}</div>
+                    </div>
+                </td>
+                <td>
+                    <div id="issue_page_project_info">
+                        <div class="control_title_normal">Project:</div>
+                        <div id="issue_page_project_title">${project_title|x}</div>
+                        <div id="issue_page_project_name">${project_name|x}</div>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <div>
+                        <div class="control_title_normal">Created at:</div>
+                        <div>${created_date|x}</div>
+                    </div>
+                </td>
+                <td>
+                    <div>
+                        <div class="control_title_normal">Last updated at:</div>
+                        <div>${updated_date|x}</div>
+                    </div>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>
+                    <div>
+                        <div class="control_title_normal">Priority:</div>
+                        ${ priority }
+                    </div>
+                </td>
+                <td>
+                    <div>
+                        <div class="control_title_normal">Resolution:</div>
+                        ${ resolution }
+                    </div>
+                </td>
+                <td>
+                    <div>
+                        <div class="control_title_normal">Status:</div>
+                        ${ status }
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <div>
+                        <div class="control_title_normal">Assigned to:</div>
+                        <div>${assigned_to|x}</div>
+                    </div>
+                </td>
+                <td>
+                    <div>
+                        <div class="control_title_normal">Watchers:</div>
+                        <div>${watchers|x}</div>
+                    </div>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <td colspan="3">
+                    <div>
+                        <div class="control_title_normal">Description:</div>
+                        <div>${description|x}</div>
+                    </div>
+                </td>
+            </tr>
+        </table>
     </div>
 </div>
+<div id="issue_page_comments_and_updates">
+    <div class="control_title_normal">Comments/Updates:</div>
+    <div>${comments}</div>
+</div>
 % endif
-<div style="display: ${display_editor| x}" id="issue_editor">
+<div>
     <form method="POST" action="${ action | x }">
         <input type="hidden" name="project_name" value="${project_name|x}" />
         % if mode == 'view':
         <input type="hidden" name="issue_id" value="${issue_id|x}" />
         <div>
-            <button type="button" onclick="var a = document.getElementById('setting_elements'); if (a.style.display=='block') { a.style.display='none' } else { a.style.display='block' }">Update Issue Controls</button>
+            <button type="button" onclick="var a = document.getElementById('setting_elements'); if (a.style.display=='block') { a.style.display='none' } else { a.style.display='block' }">Edit Issue</button>
         </div>
         % endif
         <div style="display: ${display_settings| x}" id="setting_elements">
@@ -82,33 +118,33 @@ elif mode == 'new':
                 <input type="text" name="title" value="${title|x}" />
             </div>
             <div>
-                <div>Priority:</div>
+                <div class="control_title_normal">Priority:</div>
                 ${ priority_selector }
             </div>
             <div>
-                <div>Resolution:</div>
+                <div class="control_title_normal">Resolution:</div>
                 ${ resolution_selector }
             </div>
             <div>
-                <div>Status:</div>
+                <div class="control_title_normal">Status:</div>
                 ${ status_selector }
             </div>
             <div>
-                <div>Assigned to:</div>
+                <div class="control_title_normal">Assigned to:</div>
                 <textarea name="assigned_to">${assigned_to|x}</textarea>
             </div>
             <div>
-                <div>Watchers:</div>
+                <div class="control_title_normal">Watchers:</div>
                 <textarea name="watchers">${watchers|x}</textarea>
             </div>
-            <div>
+            <div class="control_title_normal">
                 <div>Description:</div>
                 <textarea name="description">${description|x}</textarea>
             </div>
         </div>
         % if mode == 'view':
         <div>
-            <div>Comment:</div>
+            <div class="control_title_normal">Comment:</div>
             <textarea name="comment">${comment|x}</textarea>
         </div>
         % endif

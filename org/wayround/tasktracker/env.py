@@ -1,10 +1,13 @@
 
 import os.path
 import urllib.parse
+import datetime
+import difflib
 
 import bottle
 
 import org.wayround.utils.file
+from org.wayround.utils.list import list_strip_remove_empty_remove_duplicated_lines
 
 import org.wayround.softengine.rtenv
 
@@ -26,12 +29,46 @@ RESOLUTIONS = [
     'Paused'
     ]
 
+def convert_cb_params_to_boolean(params, names):
+
+    for i in names:
+
+        if i in params and (
+            params[i].lower() in ['on', 'yes', 'true', 'ok']
+            ):
+            params[i] = True
+        else:
+            params[i] = False
+
+class Session:
+
+    def __init__(self):
+
+        self.id = None
+        self.jid = None
+        self.site_role = None
+        self.project_roles = {}
+        self.session_valid_till = None
+
 class PageAction:
 
     def __init__(self, title, href):
 
         self.title = title
         self.href = href
+
+class PageSpan:
+
+    def __init__(self, text, cl):
+
+        self.text = text
+        self.cl = cl
+
+class PageHtml:
+
+    def __init__(self, markup):
+
+        self.markup = markup
 
 class Environment:
 
@@ -50,50 +87,154 @@ class Environment:
 
         self.app = bottle.Bottle()
 
-        self.app.route('/', 'GET', self.root_view)
+        self.app.route('/', 'GET', self.index)
+
+        self.app.route('/js/<filename>', 'GET', self.rtenv.modules[ttm].js)
+        self.app.route('/css/<filename>', 'GET', self.rtenv.modules[ttm].css)
+
+
+        self.app.route('/settings', 'GET', self.site_settings)
+        self.app.route('/settings', 'POST', self.site_settings_post)
+
+        self.app.route('/roles', 'GET', self.site_roles)
+        self.app.route('/roles', 'POST', self.site_roles_post)
 
         self.app.route('/login', 'GET', self.login)
         self.app.route('/login', 'POST', self.login_post)
         self.app.route('/logout', 'GET', self.logout)
 
+        self.app.route('/register', 'GET', self.register)
+        self.app.route('/register', 'POST', self.register_post)
+
         self.app.route('/new_project', 'GET', self.new_project)
         self.app.route('/new_project', 'POST', self.new_project_post)
-        self.app.route('/edit_project', 'GET', self.edit_project)
-        self.app.route('/edit_project', 'POST', self.edit_project_post)
 
         self.app.route('/project/<project_name>', 'GET', self.project_view)
-        self.app.route('/project/<project_name>/', 'GET', self.redirect_to_project_view)
+        self.app.route('/project/<project_name>/',
+            'GET', self.redirect_to_project_view
+            )
 
-        self.app.route('/project/<project_name>/new_issue', 'GET', self.new_issue)
-        self.app.route('/project/<project_name>/new_issue', 'POST', self.new_issue_post)
+        self.app.route(
+            '/project/<project_name>/settings', 'GET', self.edit_project
+            )
+        self.app.route(
+            '/project/<project_name>/settings', 'POST', self.edit_project_post
+            )
 
-        self.app.route('/project/<project_name>/<issue_id:int>', 'GET', self.view_issue)
-        self.app.route('/project/<project_name>/<issue_id:int>', 'post', self.edit_issue_post)
+        self.app.route(
+            '/project/<project_name>/roles', 'GET', self.project_roles
+            )
+        self.app.route(
+            '/project/<project_name>/roles', 'POST', self.project_roles_post
+            )
 
-    def get_actions(self, mode=None, project_name=None):
+        self.app.route(
+            '/project/<project_name>/new_issue', 'GET', self.new_issue
+            )
+        self.app.route(
+            '/project/<project_name>/new_issue', 'POST', self.new_issue_post
+            )
+
+
+        self.app.route(
+            '/project/<project_name>/<issue_id:int>', 'GET', self.view_issue
+            )
+        self.app.route(
+            '/project/<project_name>/<issue_id:int>', 'post',
+            self.edit_issue_post
+            )
+
+    def get_page_actions(
+        self,
+        mode=None,
+        rts_object=None,
+        project_name=None,
+        issue_id=None
+        ):
+
+        if not isinstance(rts_object, Session):
+            raise TypeError("rts_object must be a Session object")
 
         lst = []
 
+        lst.append(PageAction('Project List', '/'))
+
         if mode == 'index':
-            lst.append(PageAction('New Project', 'new_project'))
+            lst.append(PageAction('New Project', '/new_project'))
+
+        if mode == 'register':
+            pass
+
+        if mode == 'login':
+            pass
 
         if mode == 'edit_project':
-            lst.append(PageAction('Project List', '/'))
+            pass
+
+        if mode == 'edit_issue':
+            lst.append(
+                PageAction(
+                    'Issue List',
+                    '/project/{}'.format(urllib.parse.quote(project_name))
+                    )
+                )
 
         if mode == 'project':
-            lst.append(PageAction('Project List', '/'))
-            lst.append(PageAction('New Issue', '{}/new_issue'.format(project_name)))
+            lst.append(
+                PageAction(
+                    'New Issue',
+                    '/project/{}/new_issue'.format(
+                        urllib.parse.quote(project_name)
+                        )
+                    )
+                )
 
         if mode == 'issue':
-            lst.append(PageAction('Project List', '/'))
             lst.append(PageAction('Issue List', '.'))
 
-        return lst
+        if rts_object.site_role == 'admin':
+            lst.append(PageAction('Site Settings', '/settings'))
+            lst.append(PageAction('Site Roles', '/roles'))
+
+        if project_name:
+            if (rts_object.site_role == 'admin' or
+                (project_name in rts_object.project_roles and
+                 rts_object.project_roles[project_name] == 'admin')):
+
+                lst.append(
+                    PageAction(
+                        'Project Settings',
+                        '/project/{}/settings'.format(
+                            urllib.request.quote(project_name)
+                            )
+                        )
+                    )
+                lst.append(
+                    PageAction(
+                        'Project Roles',
+                        '/project/{}/roles'.format(
+                            urllib.request.quote(project_name)
+                            )
+                        )
+                    )
+
+        ret = self.rtenv.modules[ttm].actions_tpl(
+            lst,
+            session_actions=self.rtenv.modules[ttm].session_tpl(
+                rts_object=rts_object
+                )
+            )
+
+        return ret
 
     def start(self):
-        bottle.run(self.app, host=self.host, port=self.port)
+        return bottle.run(self.app, host=self.host, port=self.port)
 
-    def session_check(self):
+
+    def generate_rts_object(self):
+        """
+        rts - run time session
+        """
 
         s = None
 
@@ -108,58 +249,578 @@ class Environment:
                 self.rtenv.modules[ttm].renew_session(s)
             else:
                 s = self.rtenv.modules[ttm].new_session()
-                bottle.response.set_cookie(session_cookie_name, s.session_cookie)
+                bottle.response.set_cookie(
+                    session_cookie_name,
+                    s.session_cookie
+                    )
 
-        return s
+        ret = Session()
+        ret.id = s.session_cookie
+        ret.jid = s.jid
+        ret.session_valid_till = s.session_valid_till
+        ret.project_roles = (
+            self.rtenv.modules[ttm].get_project_roles_of_jid_dict(
+                s.jid
+                )
+            )
 
-    def session_status(self, session=None):
+        ret.site_role = 'guest'
+
+        if s.jid == self.admin_jid:
+            ret.site_role = 'admin'
+        else:
+            site_role = self.rtenv.modules[ttm].get_site_role(s.jid)
+
+            if site_role == None:
+                ret.site_role = 'guest'
+            else:
+                if not site_role.role in ['admin', 'user', 'blocked']:
+                    ret.site_role = 'guest'
+                else:
+                    ret.site_role = site_role.role
+
+        if ret.site_role in ['admin', 'moder', 'blocked', 'guest']:
+            for i in ret.project_roles.keys():
+                ret.project_roles[i] = ret.site_role
+
+        return ret
+
+    def index(self):
+
+        rts = self.generate_rts_object()
+
+        projects = self.rtenv.modules[ttm].get_projects()
+
+        project_list = self.rtenv.modules[ttm].project_list_tpl(
+            projects,
+            rts_object=rts
+            )
+
+        actions = self.get_page_actions(
+            mode='index',
+            rts_object=rts
+            )
+
+        ret = self.rtenv.modules[ttm].html_tpl(
+            title="Test title",
+            actions=actions,
+            body=project_list
+            )
+
+        return ret
+
+    def site_settings_access_check(self, rts):
+
+        if rts.site_role != 'admin':
+            raise bottle.HTTPError(403, "Not Allowed")
+
+        return
+
+    def site_settings(self):
+
+        rts = self.generate_rts_object()
+
+        self.site_settings_access_check(rts)
+
+        actions = self.get_page_actions(
+            mode='settings',
+            rts_object=rts
+            )
+
+        site_title = self.rtenv.modules[ttm].get_site_setting(
+            'site_title',
+            'Not titled'
+            )
+
+        site_description = self.rtenv.modules[ttm].get_site_setting(
+            'site_description',
+            'None'
+            )
+
+        user_can_register_self = self.rtenv.modules[ttm].get_site_setting(
+            'user_can_register_self',
+            False
+            ) == '1'
+
+        user_can_create_projects = self.rtenv.modules[ttm].get_site_setting(
+            'user_can_create_projects',
+            False
+            ) == '1'
+
+
+        settings_page = self.rtenv.modules[ttm].site_settings_tpl(
+            site_title,
+            site_description,
+            user_can_register_self,
+            user_can_create_projects
+            )
+
+        ret = self.rtenv.modules[ttm].html_tpl(
+            title="Change site settings",
+            actions=actions,
+            body=settings_page
+            )
+
+        return ret
+
+    def site_settings_post(self):
+
+        rts = self.generate_rts_object()
+
+        self.site_settings_access_check(rts)
+
+        for i in [
+            'site_title',
+            'site_description',
+            ]:
+            if not i in bottle.request.params:
+                raise KeyError("parameter `{}' must be passed".format(i))
+
+        decoded_params = bottle.request.params.decode('utf-8')
+
+        convert_cb_params_to_boolean(
+            decoded_params,
+            [
+            'user_can_register_self',
+            'user_can_create_projects'
+            ]
+            )
+
+        self.rtenv.modules[ttm].set_site_setting(
+            'site_title',
+            decoded_params['site_title']
+            )
+
+        self.rtenv.modules[ttm].set_site_setting(
+            'site_description',
+            decoded_params['site_description']
+            )
+
+        self.rtenv.modules[ttm].set_site_setting(
+            'user_can_register_self',
+            decoded_params['user_can_register_self']
+            )
+
+        self.rtenv.modules[ttm].set_site_setting(
+            'user_can_create_projects',
+            decoded_params['user_can_create_projects']
+            )
+
+        bottle.response.status = 303
+        bottle.response.set_header('Location', '')
+
+        return
+
+    site_roles_access_check = site_settings_access_check
+
+    def site_roles(self):
+
+        rts = self.generate_rts_object()
+
+        self.site_roles_access_check(rts)
+
+        actions = self.get_page_actions(
+            mode='settings',
+            rts_object=rts
+            )
+
+        roles = self.rtenv.modules[ttm].get_site_roles_dict()
+
+        admins = []
+        moders = []
+        users = []
+        blocked = []
+
+        for i in roles.keys():
+
+            if roles[i] == 'admin':
+                admins.append(i)
+
+            if roles[i] == 'moder':
+                moders.append(i)
+
+            if roles[i] == 'user':
+                users.append(i)
+
+            if roles[i] == 'blocked':
+                blocked.append(i)
+
+        admins.sort()
+        moders.sort()
+        users.sort()
+        blocked.sort()
+
+        roles_page = self.rtenv.modules[ttm].site_roles_tpl(
+            admins='\n'.join(admins),
+            moders='\n'.join(moders),
+            users='\n'.join(users),
+            blocked='\n'.join(blocked)
+            )
+
+        ret = self.rtenv.modules[ttm].html_tpl(
+            title="Change site roles",
+            actions=actions,
+            body=roles_page
+            )
+
+        return ret
+
+    def site_roles_post(self):
+
+        rts = self.generate_rts_object()
+
+        self.site_roles_access_check(rts)
+
+        for i in [
+            'admins',
+            'moders',
+            'users',
+            'blocked'
+            ]:
+            if not i in bottle.request.params:
+                raise KeyError("parameter `{}' must be passed".format(i))
+
+        decoded_params = bottle.request.params.decode('utf-8')
+
+        admins = list_strip_remove_empty_remove_duplicated_lines(
+            decoded_params['admins'].splitlines()
+            )
+
+        moders = list_strip_remove_empty_remove_duplicated_lines(
+            decoded_params['moders'].splitlines()
+            )
+
+        users = list_strip_remove_empty_remove_duplicated_lines(
+            decoded_params['users'].splitlines()
+            )
+
+        blocked = list_strip_remove_empty_remove_duplicated_lines(
+            decoded_params['blocked'].splitlines()
+            )
+
+        roles = {}
+
+        for i in admins:
+            roles[i] = 'admin'
+
+        del admins
+
+        for i in moders:
+            roles[i] = 'moder'
+
+        del moders
+
+        for i in users:
+            roles[i] = 'user'
+
+        del users
+
+        for i in blocked:
+            roles[i] = 'blocked'
+
+        del blocked
+
+        roles = self.rtenv.modules[ttm].set_site_roles(roles)
+
+        bottle.response.status = 303
+        bottle.response.set_header('Location', '')
+
+        return
+
+    def new_project_access_chec(self, rts):
+
+        if rts.site_role != 'admin' and self.rtenv.modules[ttm].get_site_setting(
+            'user_can_create_projects',
+            False
+            ) != '1':
+            raise bottle.HTTPError(403, "Not Allowed")
+
+        return
+
+    def new_project(self):
+
+        rts = self.generate_rts_object()
+
+        self.new_project_access_chec(rts)
+
+        actions = self.get_page_actions(
+            mode='edit_project',
+            rts_object=rts
+            )
+
+
+        edit_project_tpl = self.rtenv.modules[ttm].edit_project_tpl(
+            mode='new'
+            )
+
+        ret = self.rtenv.modules[ttm].html_tpl(
+            title="Create new project",
+            actions=actions,
+            body=edit_project_tpl
+            )
+
+        return ret
+
+    def new_project_post(self):
+
+        rts = self.generate_rts_object()
+
+        self.new_project_access_chec(rts)
+
+        for i in ['name', 'title', 'description']:
+            if not i in bottle.request.params:
+                raise KeyError("parameter `{}' must be passed".format(i))
+
+        decoded_params = bottle.request.params.decode('utf-8')
+
+        convert_cb_params_to_boolean(
+            decoded_params,
+            [
+            'guests_access_allowed'
+            ]
+            )
+
+        name = decoded_params['name']
+
+        self.rtenv.modules[ttm].new_project(
+            name,
+            decoded_params['title'],
+            decoded_params['description'],
+            decoded_params['guests_access_allowed']
+            )
+
+        ret = self.rtenv.modules[ttm].html_tpl(
+            title="Project creation result",
+            actions='',
+            body=''
+            )
+
+        bottle.response.status = 303
+        bottle.response.set_header('Location', '/project/{}'.format(urllib.parse.quote(name)))
+
+        return ret
+
+    def edit_project_access_check(self, rts, project_record):
+
+        allowed = False
+
+        if rts.site_role == 'admin':
+            allowed = True
+
+        if project_record.name in rts.project_roles \
+            and rts.project_roles[project_record.name] == 'admin':
+            allowed = True
+
+        if not allowed:
+            raise bottle.HTTPError(403, "Not Allowed")
+
+        return
+
+    def edit_project(self, project_name):
+
+        rts = self.generate_rts_object()
 
         ret = ''
 
-        if session == None:
-            ret = self.rtenv.modules[ttm].session_tpl(
-                status='anonymous',
-                jid='"Not JID"',
-                session_cookie='XXX',
-                session_valid_till="Something wrong with your cookie. "
-                    "Must be You are the first time here"
+        p = self.rtenv.modules[ttm].get_project(project_name)
+
+        self.edit_project_access_check(rts, p)
+
+        if not p:
+            raise bottle.HTTPError(404, body="Project not found")
+
+        else:
+
+            actions = self.get_page_actions(
+                mode='edit_project',
+                rts_object=rts
                 )
 
-        else:
+            edit_project_tpl = self.rtenv.modules[ttm].edit_project_tpl(
+                mode='edit',
+                name=project_name,
+                title=p.title,
+                description=p.description,
+                guests_access_allowed=p.guests_access_allowed
+                )
 
-            if session.jid != None:
-                ret = self.rtenv.modules[ttm].session_tpl(
-                    status='authenticated',
-                    jid=session.jid,
-                    session_cookie=session.session_cookie,
-                    session_valid_till=session.session_valid_till
-                    )
-
-            else:
-                ret = self.rtenv.modules[ttm].session_tpl(
-                    status='anonymous',
-                    jid='',
-                    session_cookie=session.session_cookie,
-                    session_valid_till=session.session_valid_till
-                    )
+            ret = self.rtenv.modules[ttm].html_tpl(
+                title="Edit project",
+                actions=actions,
+                body=edit_project_tpl
+                )
 
         return ret
 
-    def determine_site_role(self, session=None):
+    def edit_project_post(self, project_name):
 
-        ret = None
+        rts = self.generate_rts_object()
 
-        if session.jid == self.admin_jid:
-            ret = 'admin'
-        else:
-            pass
+        for i in ['title', 'description']:
+            if not i in bottle.request.params:
+                raise KeyError("parameter `{}' must be passed".format(i))
+
+        decoded_params = bottle.request.params.decode('utf-8')
+
+        convert_cb_params_to_boolean(
+            decoded_params,
+            [
+            'guests_access_allowed'
+            ]
+            )
+
+        p = self.rtenv.modules[ttm].get_project(project_name)
+
+        self.edit_project_access_check(rts, p)
+
+        if not p:
+            raise bottle.HTTPError(404, body="Project not found")
+
+        p = self.rtenv.modules[ttm].edit_project(
+            project_name,
+            decoded_params['title'],
+            decoded_params['description'],
+            decoded_params['guests_access_allowed']
+            )
+
+        if not p:
+            raise bottle.HTTPError(404, body="Project not found")
+
+        bottle.response.status = 303
+        bottle.response.set_header(
+            'Location', '/project/{}'.format(urllib.parse.quote(project_name))
+            )
+
+        return
+
+    project_roles_access_check = edit_project_access_check
+
+    def project_roles(self, project_name):
+
+        rts = self.generate_rts_object()
+
+        p = self.rtenv.modules[ttm].get_project(project_name)
+
+        self.project_roles_access_check(rts, p)
+
+        del p
+
+        actions = self.get_page_actions(
+            mode='project_roles',
+            rts_object=rts
+            )
+
+        roles = self.rtenv.modules[ttm].get_project_roles_dict(project_name)
+
+        admins = []
+        moders = []
+        users = []
+        blocked = []
+
+        for i in roles.keys():
+
+            if roles[i] == 'admin':
+                admins.append(i)
+
+            if roles[i] == 'moder':
+                moders.append(i)
+
+            if roles[i] == 'user':
+                users.append(i)
+
+            if roles[i] == 'blocked':
+                blocked.append(i)
+
+        admins.sort()
+        moders.sort()
+        users.sort()
+        blocked.sort()
+
+        roles_page = self.rtenv.modules[ttm].project_roles_tpl(
+            admins='\n'.join(admins),
+            moders='\n'.join(moders),
+            users='\n'.join(users),
+            blocked='\n'.join(blocked)
+            )
+
+        ret = self.rtenv.modules[ttm].html_tpl(
+            title="Change project roles",
+            actions=actions,
+            body=roles_page
+            )
 
         return ret
+
+
+    def project_roles_post(self, project_name):
+
+        rts = self.generate_rts_object()
+
+        self.project_roles_access_check(rts)
+
+        for i in [
+            'admins',
+            'moders',
+            'users',
+            'blocked'
+            ]:
+            if not i in bottle.request.params:
+                raise KeyError("parameter `{}' must be passed".format(i))
+
+        decoded_params = bottle.request.params.decode('utf-8')
+
+        admins = list_strip_remove_empty_remove_duplicated_lines(
+            decoded_params['admins'].splitlines()
+            )
+
+        moders = list_strip_remove_empty_remove_duplicated_lines(
+            decoded_params['moders'].splitlines()
+            )
+
+        users = list_strip_remove_empty_remove_duplicated_lines(
+            decoded_params['users'].splitlines()
+            )
+
+        blocked = list_strip_remove_empty_remove_duplicated_lines(
+            decoded_params['blocked'].splitlines()
+            )
+
+        roles = {}
+
+        for i in admins:
+            roles[i] = 'admin'
+
+        del admins
+
+        for i in moders:
+            roles[i] = 'moder'
+
+        del moders
+
+        for i in users:
+            roles[i] = 'user'
+
+        del users
+
+        for i in blocked:
+            roles[i] = 'blocked'
+
+        del blocked
+
+        roles = self.rtenv.modules[ttm].set_site_roles(roles)
+
+        bottle.response.status = 303
+        bottle.response.set_header('Location', '')
+
+        return
 
     def login(self):
 
-        actions = self.rtenv.modules[ttm].actions_tpl(
-            self.get_actions(mode='login')
+        rts = self.generate_rts_object()
+
+        actions = self.get_page_actions(
+            mode='login',
+            rts_object=rts
             )
 
         ret = self.rtenv.modules[ttm].html_tpl(
@@ -176,7 +837,9 @@ class Environment:
             if not i in bottle.request.params:
                 raise KeyError("parameter `{}' must be passed".format(i))
 
-        jid = bottle.request.params['jid']
+        decoded_params = bottle.request.params.decode('utf-8')
+
+        jid = decoded_params['jid']
 
         #        if jid == self.admin_jid:
 
@@ -199,143 +862,79 @@ class Environment:
 #        bottle.response.set_header('Cache-Control', 'no-cache')
 #        bottle.redirect('/', code=200)
 
-    def root_view(self):
+    def register_access_check(self, rts):
 
-        session = self.session_check()
+        if rts.jid != None or self.rtenv.modules[ttm].get_site_setting(
+            'user_can_register_self',
+            False
+            ) != '1':
+            raise bottle.HTTPError(403, "Not Allowed")
 
-        projects = self.rtenv.modules[ttm].get_projects()
+        return
 
-#        print("Projects found: {}:".format(len(projects)))
-#        for i in projects:
-#            print("   {}".format(repr(i)))
+    def register(self):
 
-        project_list = self.rtenv.modules[ttm].project_list_tpl(
-            projects
+        rts = self.generate_rts_object()
+
+        self.register_access_check(rts)
+
+        actions = self.get_page_actions(
+            mode='register',
+            rts_object=rts
             )
 
-        actions = self.rtenv.modules[ttm].actions_tpl(
-            self.get_actions(mode='index')
-            )
+        register_tpl = self.rtenv.modules[ttm].register_tpl()
 
         ret = self.rtenv.modules[ttm].html_tpl(
             title="Test title",
             actions=actions,
-            session=self.session_status(session),
-            body=project_list
+            session='',
+            body=register_tpl
             )
 
         return ret
 
-    def new_project(self):
+    def register_post(self):
 
-        actions = self.rtenv.modules[ttm].actions_tpl(
-            self.get_actions(mode='edit_project')
-            )
+        rts = self.generate_rts_object()
 
-        edit_project_tpl = self.rtenv.modules[ttm].edit_project_tpl(
-            mode='new'
-            )
+        self.register_access_check(rts)
 
-        ret = self.rtenv.modules[ttm].html_tpl(
-            title="Create new project",
-            actions=actions,
-            body=edit_project_tpl
-            )
-
-        return ret
-
-    def new_project_post(self):
-
-        for i in ['name', 'title', 'description']:
-            if not i in bottle.request.params:
-                raise KeyError("parameter `{}' must be passed".format(i))
-
-        name = bottle.request.params['name']
-        title = bottle.request.params['title']
-        description = bottle.request.params['description']
-
-
-        self.rtenv.modules[ttm].new_project(
-            name, title, description
-            )
-
-        ret = self.rtenv.modules[ttm].html_tpl(
-            title="Project creation result",
-            actions='',
-            body=''
-            )
-
-        bottle.redirect('/project/{}'.format(name))
-
-        return ret
-
-    def edit_project(self):
-
-        ret = ''
-
-        for i in ['name']:
-            if not i in bottle.request.params:
-                raise KeyError("parameter `{}' must be passed".format(i))
-
-        name = bottle.request.params['name']
-
-        p = self.rtenv.modules[ttm].get_project(name)
-
-        if not p:
-            raise bottle.HTTPError(404, body="Project not found")
-
-        else:
-            actions = self.rtenv.modules[ttm].actions_tpl(
-                self.get_actions(mode='edit_project')
-                )
-
-            edit_project_tpl = self.rtenv.modules[ttm].edit_project_tpl(
-                mode='edit',
-                name=name,
-                title=p.title,
-                description=p.description
-                )
-
-            ret = self.rtenv.modules[ttm].html_tpl(
-                title="Edit project",
-                actions=actions,
-                body=edit_project_tpl
-                )
-
-        return ret
-
-    def edit_project_post(self):
-
-        ret = ''
-
-        for i in ['name', 'title', 'description']:
-            if not i in bottle.request.params:
-                raise KeyError("parameter `{}' must be passed".format(i))
-
-        name = bottle.request.params['name']
-        title = bottle.request.params['title']
-        description = bottle.request.params['description']
-
-        p = self.rtenv.modules[ttm].get_project(name)
-
-        if not p:
-            raise bottle.HTTPError(404, body="Project not found")
-
-        else:
-
-            p.title = title
-            p.description = description
-
-            self.rtenv.db.sess.commit()
-
-        return ret
+        return "Not implemented. Go back."
 
     def redirect_to_project_view(self, project_name):
-        bottle.redirect('/project/{}'.format(urllib.parse.quote(project_name)))
+        bottle.response.status = 303
+        bottle.response.set_header(
+            'Location', '/project/{}'.format(urllib.parse.quote(project_name))
+            )
+
+    def project_view_access_check(self, rts, project_record):
+
+        allowed = False
+
+        if rts.site_role == 'admin':
+            allowed = True
+
+        if project_record.name in rts.project_roles:
+
+            if rts.project_roles[project_record.project_name] != 'blocked':
+                allowed = True
+
+        else:
+
+            if project_record.guests_access_allowed:
+                allowed = True
+
+        if not allowed:
+            raise bottle.HTTPError(403, "Not Allowed")
+
+        return
 
     def project_view(self, project_name):
 
         ret = ''
+
+        rts = self.generate_rts_object()
 
         p = self.rtenv.modules[ttm].get_project(project_name)
 
@@ -344,8 +943,12 @@ class Environment:
 
         else:
 
-            actions = self.rtenv.modules[ttm].actions_tpl(
-                self.get_actions(mode='project', project_name=project_name)
+            self.project_view_access_check(rts, p)
+
+            actions = self.get_page_actions(
+                mode='project',
+                project_name=project_name,
+                rts_object=rts
                 )
 
             issues = self.rtenv.modules[ttm].get_project_issues(project_name)
@@ -364,9 +967,17 @@ class Environment:
                 if i.status == 'deleted':
                     deleted.append(i)
 
+
             open_table = self.rtenv.modules[ttm].issue_teaser_table_tpl(opened)
-            closed_table = self.rtenv.modules[ttm].issue_teaser_table_tpl(closed)
-            deleted_table = self.rtenv.modules[ttm].issue_teaser_table_tpl(deleted)
+
+            closed_table = self.rtenv.modules[ttm].issue_teaser_table_tpl(
+                closed
+                )
+
+            deleted_table = self.rtenv.modules[ttm].issue_teaser_table_tpl(
+                deleted
+                )
+
 
             project_page = self.rtenv.modules[ttm].project_page_tpl(
                 open_issue_table=open_table,
@@ -382,19 +993,41 @@ class Environment:
 
         return ret
 
+    def new_issue_access_check(self, rts, project_record):
+
+        allowed = False
+
+        if rts.site_role == 'admin':
+            allowed = True
+
+        if project_record.name in rts.project_roles:
+
+            if rts.project_roles[project_record.project_name] != 'blocked':
+                allowed = True
+
+        if not allowed:
+            raise bottle.HTTPError(403, "Not Allowed")
+
+        return
+
     def new_issue(self, project_name):
 
         ret = ''
 
+        rts = self.generate_rts_object()
+
         p = self.rtenv.modules[ttm].get_project(project_name)
+
+        self.new_issue_access_check(rts, p)
 
         if not p:
             raise bottle.HTTPError(404, body="Project not found")
 
         else:
 
-            actions = self.rtenv.modules[ttm].actions_tpl(
-                self.get_actions(mode='issue')
+            actions = self.get_page_actions(
+                mode='issue',
+                rts_object=rts
                 )
 
             edit_issue_tpl = self.rtenv.modules[ttm].edit_issue_tpl(
@@ -413,6 +1046,12 @@ class Environment:
 
     def new_issue_post(self, project_name):
 
+        rts = self.generate_rts_object()
+
+        p = self.rtenv.modules[ttm].get_project(project_name)
+
+        self.new_issue_access_check(rts, p)
+
         for i in [
             'project_name',
             'title',
@@ -426,19 +1065,19 @@ class Environment:
             if not i in bottle.request.params:
                 raise KeyError("parameter `{}' must be passed".format(i))
 
-        #        name = bottle.request.params['name']
+        decoded_params = bottle.request.params.decode('utf-8')
 
-        if not project_name == bottle.request.params['project_name']:
+        if not project_name == decoded_params['project_name']:
             raise bottle.HTTPError(400, "Wrong project_name parameter")
 
 
-        self.rtenv.modules[ttm].new_issue(
-            project_name=bottle.request.params['project_name'],
-            title=bottle.request.params['title'],
-            priority=bottle.request.params['priority'],
-            status=bottle.request.params['status'],
-            resolution=bottle.request.params['resolution'],
-            description=bottle.request.params['description']
+        issue = self.rtenv.modules[ttm].new_issue(
+            project_name=decoded_params['project_name'],
+            title=decoded_params['title'],
+            priority=decoded_params['priority'],
+            status=decoded_params['status'],
+            resolution=decoded_params['resolution'],
+            description=decoded_params['description']
             )
 
         ret = self.rtenv.modules[ttm].html_tpl(
@@ -447,13 +1086,39 @@ class Environment:
             body=''
             )
 
+        people = {
+            'worker': list_strip_remove_empty_remove_duplicated_lines(
+                decoded_params['assigned_to'].splitlines()
+                ),
+            'watcher':list_strip_remove_empty_remove_duplicated_lines(
+                decoded_params['watchers'].splitlines()
+                )
+            }
+
+        self.rtenv.modules[ttm].issue_set_roles(issue.issue_id, people)
+
+        bottle.response.status = 303
+        bottle.response.set_header(
+            'Location', '/project/{}/{}'.format(
+                urllib.parse.quote(project_name),
+                urllib.parse.quote(issue.issue_id)
+                )
+            )
+
         return ret
+
+    view_issue_access_check = project_view_access_check
 
     def view_issue(self, project_name, issue_id):
 
         ret = ''
 
+        rts = self.generate_rts_object()
+
         project = self.rtenv.modules[ttm].get_project(project_name)
+
+        self.view_issue_access_check(rts, project)
+
         issue = self.rtenv.modules[ttm].get_issue(issue_id)
 
         if not project:
@@ -463,29 +1128,23 @@ class Environment:
             raise bottle.HTTPError(404, body="Issue not found")
 
         elif project_name != issue.project_name:
-            raise bottle.HTTPError(404, body="Selected issue is not belongings to selected project")
+            raise bottle.HTTPError(
+                404, body="Selected issue is not belongings to selected project"
+                )
 
         else:
 
-            actions = self.rtenv.modules[ttm].actions_tpl(
-                self.get_actions(mode='project', project_name=project_name)
+            actions = self.get_page_actions(
+                mode='edit_issue',
+                project_name=project_name,
+                rts_object=rts
                 )
 
+            updates = self.rtenv.modules[ttm].get_issue_updates(issue_id)
 
-            people = {}
+            updates_table = self.rtenv.modules[ttm].issue_update_table_tpl(updates)
 
-            for i in ['worker', 'watcher']:
-
-                t = self.rtenv.db.sess.query(
-                    self.rtenv.models[ttm]['IssueRole']
-                    ).filter_by(issue_id=issue.issue_id, role=i).all()
-
-                people[i] = []
-
-                for j in t:
-                    people[i].append(i.jid)
-
-                people[i].sort()
+            people = self.rtenv.modules[ttm].issue_get_roles(issue_id)
 
             edit_issue_tpl = self.rtenv.modules[ttm].edit_issue_tpl(
                 mode='view',
@@ -497,11 +1156,11 @@ class Environment:
                 status=issue.status,
                 resolution=issue.resolution,
                 description=issue.description,
-                assigned_to='{}\n'.format('\n'.join(people['worker'])),
-                watchers='{}\n'.format('\n'.join(people['watcher'])),
+                assigned_to='\n'.join(people['worker']),
+                watchers='\n'.join(people['watcher']),
                 created_date=issue.creation_date,
                 updated_date=issue.updation_date,
-                comments='',
+                comments=updates_table,
                 comment=''
                 )
 
@@ -513,29 +1172,139 @@ class Environment:
 
         return ret
 
-    def edit_issue_post(self):
+    edit_issue_post_access_check = new_issue_access_check
 
-        ret = ''
+    def edit_issue_post(self, project_name, issue_id):
 
-        for i in ['name', 'title', 'description']:
+        ret = None
+
+        for i in [
+            'project_name',
+            'issue_id',
+            'title',
+            'priority',
+            'status',
+            'resolution',
+            'description',
+            'assigned_to',
+            'watchers',
+            'comment'
+            ]:
             if not i in bottle.request.params:
                 raise KeyError("parameter `{}' must be passed".format(i))
 
-        name = bottle.request.params['name']
-        title = bottle.request.params['title']
-        description = bottle.request.params['description']
+        decoded_params = bottle.request.params.decode('utf-8')
 
-        p = self.rtenv.modules[ttm].get_issue(name)
+        rts = self.generate_rts_object()
 
-        if not p:
+        project = self.rtenv.modules[ttm].get_project(project_name)
+
+        self.edit_issue_post_access_check(rts, project)
+
+        issue = self.rtenv.modules[ttm].get_issue(issue_id)
+
+        if not project:
             raise bottle.HTTPError(404, body="Project not found")
+
+        elif not issue:
+            raise bottle.HTTPError(404, body="Issue not found")
+
+        elif project_name != issue.project_name:
+            raise bottle.HTTPError(
+                404,
+                body="Selected issue is not belongings to selected project"
+                )
 
         else:
 
-            p.title = title
-            p.description = description
+            current_date = datetime.datetime.now()
 
-            self.rtenv.db.sess.commit()
+            people = self.rtenv.modules[ttm].issue_get_roles(issue_id)
+
+            _t = list_strip_remove_empty_remove_duplicated_lines(
+                decoded_params['assigned_to'].splitlines()
+                )
+
+            _t.sort()
+            corrected_workers = '\n'.join(_t)
+
+            _t = list_strip_remove_empty_remove_duplicated_lines(
+                decoded_params['watchers'].splitlines()
+                )
+            _t.sort()
+            corrected_watchers = '\n'.join(_t)
+
+
+            descr_diff = 'None'
+            if issue.description != decoded_params['description']:
+                descr_diff = '\n'.join(difflib.ndiff(
+                    issue.description.splitlines(),
+                    decoded_params['description'].splitlines()
+                    ))
+
+            assigned_diff = 'None'
+            _t = '\n'.join(people['worker'])
+            if _t != corrected_workers:
+                print("{}\n!={}".format(repr(_t), repr(corrected_workers)))
+                assigned_diff = '\n'.join(difflib.ndiff(
+                    _t.splitlines(),
+                    corrected_workers.splitlines()
+                    ))
+
+            watchers_diff = 'None'
+            _t = '\n'.join(people['watcher'])
+            if _t != corrected_watchers:
+                print("{}\n!={}".format(repr(_t), repr(corrected_watchers)))
+                watchers_diff = '\n'.join(difflib.ndiff(
+                    _t.splitlines(),
+                    corrected_watchers.splitlines()
+                    ))
+
+            self.rtenv.modules[ttm].make_issue_update(
+                issue_id=issue_id,
+                title_old=issue.title,
+                title=decoded_params['title'],
+                priority_old=issue.priority,
+                priority=decoded_params['priority'],
+                status_old=issue.status,
+                status=decoded_params['status'],
+                resolution_old=issue.resolution,
+                resolution=decoded_params['resolution'],
+                description_diff=descr_diff,
+                assigned_to_diff=assigned_diff,
+                watchers_diff=watchers_diff,
+                comment=decoded_params['comment'],
+                date=current_date
+                )
+
+            ret = self.rtenv.modules[ttm].edit_issue(
+                issue_id=issue_id,
+                title=decoded_params['title'],
+                priority=decoded_params['priority'],
+                status=decoded_params['status'],
+                resolution=decoded_params['resolution'],
+                description=decoded_params['description'],
+                updation_date=current_date
+                )
+
+            people = {
+                'worker': list_strip_remove_empty_remove_duplicated_lines(
+                    decoded_params['assigned_to'].splitlines()
+                    ),
+                'watcher':list_strip_remove_empty_remove_duplicated_lines(
+                    decoded_params['watchers'].splitlines()
+                    )
+                }
+
+            self.rtenv.modules[ttm].issue_set_roles(issue_id, people)
+
+        bottle.response.status = 303
+        bottle.response.set_header(
+            'Location', '/project/{}/{}'.format(
+                urllib.parse.quote(project_name),
+                urllib.parse.quote(issue_id)
+                )
+            )
 
         return ret
 
@@ -555,3 +1324,4 @@ def install_launcher(path):
         clear_before_copy=False,
         dst_must_be_empty=False
         )
+

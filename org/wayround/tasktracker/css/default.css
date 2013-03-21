@@ -1,0 +1,110 @@
+body {
+    background: silver;
+    /* font-size: 12px; */
+    font-family: Arial;
+}
+
+.control_title_normal {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.inline {
+    display: inline;
+}
+
+pre.console_shot {
+    background: black;
+    color: #aaaaaa;
+    padding: 10px;
+    border-radius: 5px;
+    font-family: Fixed;
+    font-size: 12px;
+    width: 100%;
+}
+
+/* PAGE ACTIONS */
+#page_actions_list {
+    background: white;
+    padding: 5px;
+    border: black solid 1px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.page_actions_list_item {
+    display: inline;
+}
+
+#actions_table {
+    width: 100%;
+}
+
+#actions_session_td {
+    text-align: right;
+    align: right;
+}
+
+/* PROJECT VIEW PAGE */
+.issue_teaser_table {
+    border: black 1px solid;
+    background: white;
+}
+
+/* ISSUE PAGE */
+#issue_page_project_info {
+    padding: 5px;
+    text-align: right;
+}
+
+#issue_page_project_title {
+    font-size: 16px;
+}
+
+#issue_page_issue_title {
+    font-size: 22px;
+    font-weight: bold;
+    display: inline;
+}
+
+#issue_page_issue_id {
+    font-size: 20px;
+    display: inline;
+}
+
+#issue_page_issue_view_main_div {
+    background: wheat;
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    box-shadow: inset -2px -2px 10px -2px black;
+}
+
+#issue_page_issue_view_main_table {
+    width: 100%;
+}
+
+#issue_page_comments_and_updates {
+    margin-bottom: 10px;
+}
+
+#issue_page_updates_table {
+    width: 100%;
+}
+
+#issue_page_updates_table>tbody>tr>td {
+    /* border: 1px solid black; */
+    
+}
+
+#issue_page_updates_table_level2 {
+    width: 100%;
+    background: white;
+    border-radius: 3px;
+    padding: 5px;
+}
+
+#issue_page_updates_table_level2>tbody>tr>td {
+    /*     border: 1px solid black; */
+    
+}

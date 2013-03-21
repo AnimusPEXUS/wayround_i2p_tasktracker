@@ -4,7 +4,6 @@
     selected_html = ''
     if i == selected:
 		selected_html = 'selected="selected"' 
-    %>
-    <option value="${ i | x }" ${selected_html}>${ i | x }</option>
+    %><option value="${ i | x }" ${selected_html}>${ i | x }</option>
 % endfor
 </select>
