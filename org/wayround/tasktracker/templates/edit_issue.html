@@ -7,7 +7,7 @@ display_view = 'none'
 
 if mode == 'view':
     action = str(issue_id)
-    
+
     display_view = 'block'
 
 elif mode == 'new':
@@ -95,6 +95,103 @@ elif mode == 'new':
                     </div>
                 </td>
             </tr>
+            <tr>
+                <td colspan="3">
+                    <div>
+                        <div class="control_title_normal">Relations:</div>
+                        <table>
+                            % if relations:
+                            % for i in relations:
+                            <%
+                            iss = get_issue(i.target_issue_id)
+                            stat = ' '
+                            if iss.status != 'open':
+                                stat += ' text-decoration:line-through '
+                            %><tr>
+                                <td>${ i.typ | x }</td>
+                                <td><a href="/project/${ iss.project_name | u,x }/${ iss.issue_id | u,x }">${ '#'+str(i.target_issue_id) | x }</a></td>
+                                <td><a style="${stat|x}" href="/project/${ iss.project_name | u,x }/${ iss.issue_id | u,x }">${ iss.title | x }</a></td>
+                            </tr>
+                            % endfor
+                            % endif
+                        </table>
+                    </div>
+                    <div>
+                        <button type="button"
+                            onclick="var a = document.getElementById('relation_elements'); if (a.style.display=='block') { a.style.display='none' } else { a.style.display='block' }">Edit Relations</button>
+                    </div>
+                    <div id="relation_elements" style="display: None">
+                        <form method="POST" action="">
+                            <input type="hidden" name="issue_id" value="${issue_id|x}" />
+                            <div>Change Existing:</div>
+                            <table>
+                                % if relations:
+                                % for i in relations:
+                                <tr>
+                                    <td>
+                                        <select name="relation_type[]">
+                                            % for j in relation_types:
+                                            <%
+                                            type_selected = ''
+                                            if j == i.typ:
+                                                type_selected = ' selected="selected" '
+                                            %><option value="${ j | x }" ${type_selected}>${ j | x }</option>
+                                            % endfor
+                                        </select>
+                                    </td>
+                                    <td><input type="text"
+                                            name="relation_target_id[]"
+                                            value="${ i.target_issue_id | x }" /></td>
+                                    <td><input type="checkbox"
+                                            name="delete_relation[]"
+                                            value="${ i.irid | x }" /></td>
+                                </tr>
+                                % endfor
+                                % endif
+                            </table>
+
+                            <div>Add New:</div>
+                            <table>
+                                <tr class="new_issue_relation_editors_table_row">
+                                    <td>
+                                        <select name="relation_type[]">
+                                            % for j in relation_types:
+                                            <option value="${ j | x }">${ j | x }</option>
+                                            % endfor
+                                        </select>
+                                    </td>
+                                    <td><input type="text"
+                                            name="relation_target_id[]" value="" /></td>
+                                </tr>
+                                <tr class="new_issue_relation_editors_table_row">
+                                    <td>
+                                        <select name="relation_type[]">
+                                            % for j in relation_types:
+                                            <option value="${ j | x }">${ j | x }</option>
+                                            % endfor
+                                        </select>
+                                    </td>
+                                    <td><input type="text"
+                                            name="relation_target_id[]" value="" /></td>
+                                </tr>
+                                <tr class="new_issue_relation_editors_table_row">
+                                    <td>
+                                        <select name="relation_type[]">
+                                            % for j in relation_types:
+                                            <option value="${ j | x }">${ j | x }</option>
+                                            % endfor
+                                        </select>
+                                    </td>
+                                    <td><input type="text"
+                                            name="relation_target_id[]" value="" /></td>
+                                </tr>
+                            </table>
+                            <button type="submit" name="submit_type"
+                                value="relations_edit">Save Relation Changes</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
         </table>
     </div>
 </div>
@@ -105,7 +202,6 @@ elif mode == 'new':
 % endif
 <div>
     <form method="POST" action="${ action | x }">
-        <input type="hidden" name="project_name" value="${project_name|x}" />
         % if mode == 'view':
         <input type="hidden" name="issue_id" value="${issue_id|x}" />
         <div>
@@ -114,7 +210,7 @@ elif mode == 'new':
         % endif
         <div style="display: ${display_settings| x}" id="setting_elements">
             <div>
-                <div>Subject:</div>
+                <div class="control_title_normal">Subject:</div>
                 <input type="text" name="title" value="${title|x}" />
             </div>
             <div>
@@ -149,7 +245,7 @@ elif mode == 'new':
         </div>
         % endif
         <div>
-            <button type="submit">Save</button>
+            <button type="submit" name="submit_type" value="issue_edit">Save</button>
         </div>
     </form>
 </div>

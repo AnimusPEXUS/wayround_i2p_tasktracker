@@ -1,9 +1,11 @@
 <div>
     <div>
-        <div>Project Settings</div>
         <div>
             <form method="POST" action="">
-                <table>
+                <table id="roles_table">
+                    <tr>
+                        <td colspan="4"><div>Project Settings</div></td>
+                    </tr>
                     <tr>
                         <th>Admins</th>
                         <th>Moderators</th>
@@ -16,31 +18,24 @@
                         <td><textarea name="users">${ users | x }</textarea></td>
                         <td><textarea name="blocked">${ blocked | x }</textarea></td>
                     </tr>
+                    <tr>
+                        <td colspan="4"><div>Inherited from global
+                                role settings</div></td>
+                    </tr>
+                    <tr>
+                        <td>${ site_admins  | x }</td>
+                        <td>${ site_moders  | x }</td>
+                        <td>${ site_users   | x }</td>
+                        <td>${ site_blocked | x }</td>
+                    </tr>
+                    <tr>
+                        <td colspan="4"><div>God: ${ god | x }</div></td>
+                    </tr>
                 </table>
                 <div>
                     <button type="submit">Save</button>
                 </div>
             </form>
         </div>
-
-    </div>
-    <div>
-        <div>Inherited from global role settings</div>
-    </div>
-    <div>
-        <table>
-            <tr>
-                <th>Admins</th>
-                <th>Moderators</th>
-                <th>Users</th>
-                <th>blocked</th>
-            </tr>
-            <tr>
-                <td><textarea name="admins">${ site_admins | x }</textarea></td>
-                <td><textarea name="moders">${ site_moders | x }</textarea></td>
-                <td><textarea name="users">${ site_users | x }</textarea></td>
-                <td><textarea name="blocked">${ site_blocked | x }</textarea></td>
-            </tr>
-        </table>
     </div>
 </div>

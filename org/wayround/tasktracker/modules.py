@@ -336,15 +336,44 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
                 default=''
                 )
 
+        class IssueRelation(self.rtenv.db.db_base):
+
+            __tablename__ = self.module_name + '_IssueRelations'
+
+            irid = sqlalchemy.Column(
+                sqlalchemy.Integer,
+                primary_key=True,
+                autoincrement=True
+                )
+
+            issue_id = sqlalchemy.Column(
+                sqlalchemy.Integer,
+                nullable=False,
+                default=0
+                )
+
+            target_issue_id = sqlalchemy.Column(
+                sqlalchemy.Integer,
+                nullable=False,
+                default=0
+                )
+
+            typ = sqlalchemy.Column(
+                sqlalchemy.UnicodeText,
+                nullable=False,
+                default='relates'
+                )
+
         self.rtenv.models[self.module_name] = {
-            'Issue':        Issue,
-            'Project':      Project,
-            'SiteRole':     SiteRole,
-            'IssueRole':    IssueRole,
-            'ProjectRole':  ProjectRole,
-            'Session':      Session,
-            'IssueUpdate':  IssueUpdate,
-            'SiteSetting':  SiteSetting
+            'Issue':         Issue,
+            'Project':       Project,
+            'SiteRole':      SiteRole,
+            'IssueRole':     IssueRole,
+            'ProjectRole':   ProjectRole,
+            'Session':       Session,
+            'IssueUpdate':   IssueUpdate,
+            'SiteSetting':   SiteSetting,
+            'IssueRelation': IssueRelation
             }
 
         self.rtenv.templates[self.module_name] = {}
@@ -405,7 +434,8 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         site_admins,
         site_moders,
         site_users,
-        site_blocked
+        site_blocked,
+        god
         ):
         return self.rtenv.templates[self.module_name]['project_roles'].render(
             admins=admins,
@@ -415,7 +445,8 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             site_admins=site_admins,
             site_moders=site_moders,
             site_users=site_users,
-            site_blocked=site_blocked
+            site_blocked=site_blocked,
+            god=god
             )
 
     def site_settings_tpl(
@@ -593,7 +624,8 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             created_date='',
             updated_date='',
             comments='',
-            comment=''
+            comment='',
+            relations=None
             ):
 
         if not mode in ['new', 'view']:
@@ -617,7 +649,10 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             created_date=created_date,
             updated_date=updated_date,
             comments=comments,
-            comment=comment
+            comment=comment,
+            relations=relations,
+            relation_types=org.wayround.tasktracker.env.RELATION_TYPES,
+            get_issue=self.get_issue
             )
 
     def issue_update_row_tpl(
@@ -1025,6 +1060,17 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         return roles
 
+    def issue_get_title(self, issue_id):
+
+        i = self.get_issue(issue_id)
+
+        ret = '{{SOME ERROR}}'
+
+        if i:
+            ret = i.title
+
+        return ret
+
     def issue_set_roles(self, issue_id, roles):
 
         """
@@ -1325,6 +1371,136 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             self.rtenv.db.sess.add(res)
         else:
             res.value = value
+
+        self.rtenv.db.sess.commit()
+
+        return
+
+    def relation_spec_converter_to_db(self, issue_relation_record):
+
+        ret = None
+
+        if issue_relation_record.typ in ['duplicates', 'blocks', 'follows']:
+
+            ret = self.rtenv.models[self.module_name]['IssueRelation']()
+
+            ret.issue_id = issue_relation_record.target_issue_id
+            ret.target_issue_id = issue_relation_record.issue_id
+
+            if issue_relation_record.typ == 'duplicates':
+                ret.typ = 'duplicated'
+
+            if issue_relation_record.typ == 'blocks':
+                ret.typ = 'blocked'
+
+            if issue_relation_record.typ == 'follows':
+                ret.typ = 'precedes'
+        else:
+            ret = issue_relation_record
+
+        return ret
+
+    def relation_spec_converter_from_db(self, issue_relation_record):
+
+        ret = None
+
+        if issue_relation_record.typ in [
+            'duplicated', 'blocked', 'precedes', 'relates'
+            ]:
+
+            ret = self.rtenv.models[self.module_name]['IssueRelation']()
+
+            ret.issue_id = issue_relation_record.target_issue_id
+            ret.target_issue_id = issue_relation_record.issue_id
+
+            if issue_relation_record.typ == 'duplicated':
+                ret.typ = 'duplicates'
+
+            if issue_relation_record.typ == 'blocked':
+                ret.typ = 'blocks'
+
+            if issue_relation_record.typ == 'precedes':
+                ret.typ = 'follows'
+
+            if issue_relation_record.typ == 'relates':
+                ret.typ = 'relates'
+
+        else:
+            ret = issue_relation_record
+
+        return ret
+
+    def issue_get_relations(self, issue_id):
+
+        by_ii = self.rtenv.db.sess.query(
+            self.rtenv.models[self.module_name]['IssueRelation']
+            ).filter_by(issue_id=issue_id).all()
+
+        by_tii = self.rtenv.db.sess.query(
+            self.rtenv.models[self.module_name]['IssueRelation']
+            ).filter_by(target_issue_id=issue_id).all()
+
+        by_tii2 = []
+        for i in by_tii:
+            by_tii2.append(self.relation_spec_converter_from_db(i))
+
+        s = set(by_ii) | set(by_tii2)
+
+        return s
+
+    def issue_add_relation(self, issue_id, target_issue_id, typ):
+
+        ret = None
+
+        ir = self.rtenv.models[self.module_name]['IssueRelation']()
+        ir.issue_id = issue_id
+        ir.target_issue_id = target_issue_id
+        ir.typ = typ
+
+        ir = self.relation_spec_converter_to_db(ir)
+
+        res = None
+        try:
+            res = self.rtenv.db.sess.query(
+                self.rtenv.models[self.module_name]['IssueRelation']
+                ).filter_by(
+                    issue_id=issue_id, target_issue_id=target_issue_id, typ=typ
+                    ).one()
+        except sqlalchemy.orm.exc.NoResultFound:
+            pass
+
+        if res == None:
+            self.rtenv.db.sess.add(ir)
+            self.rtenv.db.sess.commit()
+
+            ret = ir
+
+        else:
+            ret = res
+
+        return ret
+
+    def issue_del_relation_by_irid(self, irid):
+
+        self.rtenv.db.sess.query(
+            self.rtenv.models[self.module_name]['IssueRelation']
+            ).filter_by(
+                irid=irid
+                ).delete()
+
+        self.rtenv.db.sess.commit()
+
+        return
+
+    def issue_del_relations(self, issue_id):
+
+        self.rtenv.db.sess.query(
+            self.rtenv.models[self.module_name]['IssueRelation']
+            ).filter_by(issue_id=issue_id).delete()
+
+        self.rtenv.db.sess.query(
+            self.rtenv.models[self.module_name]['IssueRelation']
+            ).filter_by(target_issue_id=issue_id).delete()
 
         self.rtenv.db.sess.commit()
 

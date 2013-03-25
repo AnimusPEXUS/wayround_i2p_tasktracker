@@ -33,7 +33,21 @@ pre.console_shot {
 }
 
 .page_actions_list_item {
-    display: inline;
+    background: black;
+    display: inline-block;
+    border-radius: 3px;
+    margin-right: 3px;
+    overflow: visible;
+}
+
+.page_actions_list_item a {
+    font-family: Helvetica;
+    font-size: 12px;
+    color: white;
+    text-decoration: none;
+    padding: 5px 10px;
+    text-align: center;
+    display: inline-block;
 }
 
 #actions_table {
@@ -46,9 +60,35 @@ pre.console_shot {
 }
 
 /* PROJECT VIEW PAGE */
-.issue_teaser_table {
-    border: black 1px solid;
+#project_page_issue_table {
+    width: 100%;
+    table-layout: fixed;
+}
+
+#project_page_issue_table>tbody>tr>td {
+    padding: 0px;
+    vertical-align: top;
+}
+
+#issue_teaser_table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#issue_teaser_table>tbody>tr {
     background: white;
+    border-radius: 3px;
+}
+
+/* ROLES TABLES */
+#roles_table {
+    width: 100%;
+}
+
+#roles_table textarea {
+    width: 100%;
+    min-height: 300px;
+    border: 1px black solid;
 }
 
 /* ISSUE PAGE */

@@ -29,6 +29,16 @@ RESOLUTIONS = [
     'Paused'
     ]
 
+RELATION_TYPES = [
+    'relates',
+    'duplicates',
+    'duplicated',
+    'blocks',
+    'blocked',
+    'precedes',
+    'follows'
+    ]
+
 def convert_cb_params_to_boolean(params, names):
 
     for i in names:
@@ -162,16 +172,8 @@ class Environment:
         if mode == 'index':
             lst.append(PageAction('New Project', '/new_project'))
 
-        if mode == 'register':
-            pass
+        if project_name:
 
-        if mode == 'login':
-            pass
-
-        if mode == 'edit_project':
-            pass
-
-        if mode == 'edit_issue':
             lst.append(
                 PageAction(
                     'Issue List',
@@ -179,7 +181,6 @@ class Environment:
                     )
                 )
 
-        if mode == 'project':
             lst.append(
                 PageAction(
                     'New Issue',
@@ -189,8 +190,16 @@ class Environment:
                     )
                 )
 
-        if mode == 'issue':
-            lst.append(PageAction('Issue List', '.'))
+        if issue_id:
+            lst.append(
+                PageAction(
+                    'This Issue',
+                    '/project/{}/{}'.format(
+                        urllib.parse.quote(project_name),
+                        urllib.parse.quote(str(issue_id))
+                        )
+                    )
+                )
 
         if rts_object.site_role == 'admin':
             lst.append(PageAction('Site Settings', '/settings'))
@@ -633,7 +642,8 @@ class Environment:
 
             actions = self.get_page_actions(
                 mode='edit_project',
-                rts_object=rts
+                rts_object=rts,
+                project_name=project_name
                 )
 
             edit_project_tpl = self.rtenv.modules[ttm].edit_project_tpl(
@@ -707,8 +717,35 @@ class Environment:
 
         actions = self.get_page_actions(
             mode='project_roles',
-            rts_object=rts
+            rts_object=rts,
+            project_name=project_name
             )
+
+        roles = self.rtenv.modules[ttm].get_site_roles_dict()
+
+        site_admins = []
+        site_moders = []
+        site_users = []
+        site_blocked = []
+
+        for i in roles.keys():
+
+            if roles[i] == 'admin':
+                site_admins.append(i)
+
+            if roles[i] == 'moder':
+                site_moders.append(i)
+
+            if roles[i] == 'user':
+                site_users.append(i)
+
+            if roles[i] == 'blocked':
+                site_blocked.append(i)
+
+        site_admins.sort()
+        site_moders.sort()
+        site_users.sort()
+        site_blocked.sort()
 
         roles = self.rtenv.modules[ttm].get_project_roles_dict(project_name)
 
@@ -740,7 +777,12 @@ class Environment:
             admins='\n'.join(admins),
             moders='\n'.join(moders),
             users='\n'.join(users),
-            blocked='\n'.join(blocked)
+            blocked='\n'.join(blocked),
+            site_admins='\n'.join(site_admins),
+            site_moders='\n'.join(site_moders),
+            site_users='\n'.join(site_users),
+            site_blocked='\n'.join(site_blocked),
+            god=self.admin_jid
             )
 
         ret = self.rtenv.modules[ttm].html_tpl(
@@ -1027,7 +1069,8 @@ class Environment:
 
             actions = self.get_page_actions(
                 mode='issue',
-                rts_object=rts
+                rts_object=rts,
+                project_name=project_name
                 )
 
             edit_issue_tpl = self.rtenv.modules[ttm].edit_issue_tpl(
@@ -1053,26 +1096,25 @@ class Environment:
         self.new_issue_access_check(rts, p)
 
         for i in [
-            'project_name',
             'title',
             'priority',
             'status',
             'resolution',
             'description',
             'assigned_to',
-            'watchers'
+            'watchers',
+            'submit_type'
             ]:
             if not i in bottle.request.params:
                 raise KeyError("parameter `{}' must be passed".format(i))
 
         decoded_params = bottle.request.params.decode('utf-8')
 
-        if not project_name == decoded_params['project_name']:
-            raise bottle.HTTPError(400, "Wrong project_name parameter")
-
+        if decoded_params['submit_type'] != 'issue_edit':
+            raise bottle.HTTPError(400, "Wrong editing mode")
 
         issue = self.rtenv.modules[ttm].new_issue(
-            project_name=decoded_params['project_name'],
+            project_name=project_name,
             title=decoded_params['title'],
             priority=decoded_params['priority'],
             status=decoded_params['status'],
@@ -1101,7 +1143,7 @@ class Environment:
         bottle.response.set_header(
             'Location', '/project/{}/{}'.format(
                 urllib.parse.quote(project_name),
-                urllib.parse.quote(issue.issue_id)
+                urllib.parse.quote(str(issue.issue_id))
                 )
             )
 
@@ -1137,6 +1179,7 @@ class Environment:
             actions = self.get_page_actions(
                 mode='edit_issue',
                 project_name=project_name,
+                issue_id=issue_id,
                 rts_object=rts
                 )
 
@@ -1161,7 +1204,8 @@ class Environment:
                 created_date=issue.creation_date,
                 updated_date=issue.updation_date,
                 comments=updates_table,
-                comment=''
+                comment='',
+                relations=self.rtenv.modules[ttm].issue_get_relations(issue_id)
                 )
 
             ret = self.rtenv.modules[ttm].html_tpl(
@@ -1178,133 +1222,215 @@ class Environment:
 
         ret = None
 
-        for i in [
-            'project_name',
-            'issue_id',
-            'title',
-            'priority',
-            'status',
-            'resolution',
-            'description',
-            'assigned_to',
-            'watchers',
-            'comment'
-            ]:
-            if not i in bottle.request.params:
-                raise KeyError("parameter `{}' must be passed".format(i))
+        if not 'submit_type' in bottle.request.params:
+            raise KeyError("parameter `submit_type' must be passed")
 
-        decoded_params = bottle.request.params.decode('utf-8')
+        if bottle.request.params['submit_type'] == 'issue_edit':
 
-        rts = self.generate_rts_object()
+            for i in [
+                'issue_id',
+                'title',
+                'priority',
+                'status',
+                'resolution',
+                'description',
+                'assigned_to',
+                'watchers',
+                'comment',
+                ]:
+                if not i in bottle.request.params:
+                    raise KeyError("parameter `{}' must be passed".format(i))
 
-        project = self.rtenv.modules[ttm].get_project(project_name)
+            decoded_params = bottle.request.params.decode('utf-8')
 
-        self.edit_issue_post_access_check(rts, project)
+            rts = self.generate_rts_object()
 
-        issue = self.rtenv.modules[ttm].get_issue(issue_id)
+            project = self.rtenv.modules[ttm].get_project(project_name)
 
-        if not project:
-            raise bottle.HTTPError(404, body="Project not found")
+            self.edit_issue_post_access_check(rts, project)
 
-        elif not issue:
-            raise bottle.HTTPError(404, body="Issue not found")
+            issue = self.rtenv.modules[ttm].get_issue(issue_id)
 
-        elif project_name != issue.project_name:
-            raise bottle.HTTPError(
-                404,
-                body="Selected issue is not belongings to selected project"
+            if not project:
+                raise bottle.HTTPError(404, body="Project not found")
+
+            elif not issue:
+                raise bottle.HTTPError(404, body="Issue not found")
+
+            elif project_name != issue.project_name:
+                raise bottle.HTTPError(
+                    404,
+                    body="Selected issue does not belongs to selected project"
+                    )
+
+            else:
+
+                current_date = datetime.datetime.now()
+
+                people = self.rtenv.modules[ttm].issue_get_roles(issue_id)
+
+                _t = list_strip_remove_empty_remove_duplicated_lines(
+                    decoded_params['assigned_to'].splitlines()
+                    )
+
+                _t.sort()
+                corrected_workers = '\n'.join(_t)
+
+                _t = list_strip_remove_empty_remove_duplicated_lines(
+                    decoded_params['watchers'].splitlines()
+                    )
+                _t.sort()
+                corrected_watchers = '\n'.join(_t)
+
+
+                descr_diff = 'None'
+                if issue.description != decoded_params['description']:
+                    descr_diff = '\n'.join(difflib.ndiff(
+                        issue.description.splitlines(),
+                        decoded_params['description'].splitlines()
+                        ))
+
+                assigned_diff = 'None'
+                _t = '\n'.join(people['worker'])
+                if _t != corrected_workers:
+                    print("{}\n!={}".format(repr(_t), repr(corrected_workers)))
+                    assigned_diff = '\n'.join(difflib.ndiff(
+                        _t.splitlines(),
+                        corrected_workers.splitlines()
+                        ))
+
+                watchers_diff = 'None'
+                _t = '\n'.join(people['watcher'])
+                if _t != corrected_watchers:
+                    print("{}\n!={}".format(repr(_t), repr(corrected_watchers)))
+                    watchers_diff = '\n'.join(difflib.ndiff(
+                        _t.splitlines(),
+                        corrected_watchers.splitlines()
+                        ))
+
+                self.rtenv.modules[ttm].make_issue_update(
+                    issue_id=issue_id,
+                    title_old=issue.title,
+                    title=decoded_params['title'],
+                    priority_old=issue.priority,
+                    priority=decoded_params['priority'],
+                    status_old=issue.status,
+                    status=decoded_params['status'],
+                    resolution_old=issue.resolution,
+                    resolution=decoded_params['resolution'],
+                    description_diff=descr_diff,
+                    assigned_to_diff=assigned_diff,
+                    watchers_diff=watchers_diff,
+                    comment=decoded_params['comment'],
+                    date=current_date
+                    )
+
+                ret = self.rtenv.modules[ttm].edit_issue(
+                    issue_id=issue_id,
+                    title=decoded_params['title'],
+                    priority=decoded_params['priority'],
+                    status=decoded_params['status'],
+                    resolution=decoded_params['resolution'],
+                    description=decoded_params['description'],
+                    updation_date=current_date
+                    )
+
+                people = {
+                    'worker': list_strip_remove_empty_remove_duplicated_lines(
+                        decoded_params['assigned_to'].splitlines()
+                        ),
+                    'watcher':list_strip_remove_empty_remove_duplicated_lines(
+                        decoded_params['watchers'].splitlines()
+                        )
+                    }
+
+                self.rtenv.modules[ttm].issue_set_roles(issue_id, people)
+
+            bottle.response.status = 303
+            bottle.response.set_header(
+                'Location', '/project/{}/{}'.format(
+                    urllib.parse.quote(project_name),
+                    urllib.parse.quote(str(issue_id))
+                    )
+                )
+
+        elif bottle.request.params['submit_type'] == 'relations_edit':
+
+            for i in [
+                'issue_id'
+                ]:
+                if not i in bottle.request.params:
+                    raise KeyError("parameter `{}' must be passed".format(i))
+
+            decoded_params = bottle.request.params.decode('utf-8')
+
+            rts = self.generate_rts_object()
+
+            project = self.rtenv.modules[ttm].get_project(project_name)
+
+            self.edit_issue_post_access_check(rts, project)
+
+            issue = self.rtenv.modules[ttm].get_issue(issue_id)
+
+            if not project:
+                raise bottle.HTTPError(404, body="Project not found")
+
+            elif not issue:
+                raise bottle.HTTPError(404, body="Issue not found")
+
+            elif project_name != issue.project_name:
+                raise bottle.HTTPError(
+                    404,
+                    body="Selected issue does not belongs to selected project"
+                    )
+
+            else:
+
+                self.rtenv.modules[ttm].issue_del_relations(issue_id)
+
+                delete_relation_list = decoded_params.dict.get('delete_relation[]', [])
+
+                for i in range(len(decoded_params.dict.get('relation_type[]', []))):
+
+                    rti = decoded_params.dict['relation_target_id[]'][i]
+                    try:
+                        rti = int(rti)
+                    except:
+                        rti = 0
+
+                    if rti == int(issue_id):
+                        continue
+
+                    issu = self.rtenv.modules[ttm].get_issue(rti)
+
+                    if not issu:
+                        continue
+
+                    if issu and not issu.project_name == project_name:
+                        continue
+
+                    rt = decoded_params.dict['relation_type[]'][i]
+                    if not rt.isidentifier():
+                        rt = 'relates'
+
+                    if not str(rti) in delete_relation_list:
+
+                        self.rtenv.modules[ttm].issue_add_relation(
+                            int(issue_id),
+                            rti,
+                            rt
+                            )
+
+            bottle.response.status = 303
+            bottle.response.set_header(
+                'Location', '/project/{}/{}'.format(
+                    urllib.parse.quote(project_name),
+                    urllib.parse.quote(str(issue_id))
+                    )
                 )
 
         else:
-
-            current_date = datetime.datetime.now()
-
-            people = self.rtenv.modules[ttm].issue_get_roles(issue_id)
-
-            _t = list_strip_remove_empty_remove_duplicated_lines(
-                decoded_params['assigned_to'].splitlines()
-                )
-
-            _t.sort()
-            corrected_workers = '\n'.join(_t)
-
-            _t = list_strip_remove_empty_remove_duplicated_lines(
-                decoded_params['watchers'].splitlines()
-                )
-            _t.sort()
-            corrected_watchers = '\n'.join(_t)
-
-
-            descr_diff = 'None'
-            if issue.description != decoded_params['description']:
-                descr_diff = '\n'.join(difflib.ndiff(
-                    issue.description.splitlines(),
-                    decoded_params['description'].splitlines()
-                    ))
-
-            assigned_diff = 'None'
-            _t = '\n'.join(people['worker'])
-            if _t != corrected_workers:
-                print("{}\n!={}".format(repr(_t), repr(corrected_workers)))
-                assigned_diff = '\n'.join(difflib.ndiff(
-                    _t.splitlines(),
-                    corrected_workers.splitlines()
-                    ))
-
-            watchers_diff = 'None'
-            _t = '\n'.join(people['watcher'])
-            if _t != corrected_watchers:
-                print("{}\n!={}".format(repr(_t), repr(corrected_watchers)))
-                watchers_diff = '\n'.join(difflib.ndiff(
-                    _t.splitlines(),
-                    corrected_watchers.splitlines()
-                    ))
-
-            self.rtenv.modules[ttm].make_issue_update(
-                issue_id=issue_id,
-                title_old=issue.title,
-                title=decoded_params['title'],
-                priority_old=issue.priority,
-                priority=decoded_params['priority'],
-                status_old=issue.status,
-                status=decoded_params['status'],
-                resolution_old=issue.resolution,
-                resolution=decoded_params['resolution'],
-                description_diff=descr_diff,
-                assigned_to_diff=assigned_diff,
-                watchers_diff=watchers_diff,
-                comment=decoded_params['comment'],
-                date=current_date
-                )
-
-            ret = self.rtenv.modules[ttm].edit_issue(
-                issue_id=issue_id,
-                title=decoded_params['title'],
-                priority=decoded_params['priority'],
-                status=decoded_params['status'],
-                resolution=decoded_params['resolution'],
-                description=decoded_params['description'],
-                updation_date=current_date
-                )
-
-            people = {
-                'worker': list_strip_remove_empty_remove_duplicated_lines(
-                    decoded_params['assigned_to'].splitlines()
-                    ),
-                'watcher':list_strip_remove_empty_remove_duplicated_lines(
-                    decoded_params['watchers'].splitlines()
-                    )
-                }
-
-            self.rtenv.modules[ttm].issue_set_roles(issue_id, people)
-
-        bottle.response.status = 303
-        bottle.response.set_header(
-            'Location', '/project/{}/{}'.format(
-                urllib.parse.quote(project_name),
-                urllib.parse.quote(issue_id)
-                )
-            )
+            pass
 
         return ret
 
