@@ -84,9 +84,14 @@ class Environment:
 
 
     def __init__(
-        self, rtenv, host='localhost',
-        port=8080, admin_jid='example@ex.nonexisting'
+        self,
+        rtenv,
+        host='localhost',
+        port=8080,
+        admin_jid='example@ex.nonexisting'
         ):
+
+        self._bot = None
 
         self.admin_jid = admin_jid
 
@@ -150,9 +155,17 @@ class Environment:
             '/project/<project_name>/<issue_id:int>', 'GET', self.view_issue
             )
         self.app.route(
-            '/project/<project_name>/<issue_id:int>', 'post',
+            '/project/<project_name>/<issue_id:int>', 'POST',
             self.edit_issue_post
             )
+
+    def set_bot(self, bot):
+
+        self._bot = bot
+
+    def stop(self):
+
+        self.app.close()
 
     def get_page_actions(
         self,

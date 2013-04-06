@@ -1,4 +1,5 @@
 
+import threading
 import getopt
 import logging
 import os.path
@@ -8,9 +9,19 @@ import org.wayround.softengine.modules
 
 import org.wayround.tasktracker.modules
 import org.wayround.tasktracker.env
+import org.wayround.tasktracker.bot
 
 
-def main(db_config, db_echo):
+def main(
+    db_config,
+    db_echo,
+    host,
+    port,
+    jid=None,
+    main_admin=None,
+    xmpp_connection_info=None,
+    xmpp_auth_info=None
+    ):
 
     for i in [
         (logging.CRITICAL, '-c-'),
@@ -51,15 +62,46 @@ def main(db_config, db_echo):
 
     org.wayround.tasktracker.modules.TaskTracker(rtenv)
 
+    exit_event = threading.Event()
+
     rtenv.init()
 
     rtenv.db.create_all()
 
+    bot = org.wayround.tasktracker.bot.Bot()
+
     env = org.wayround.tasktracker.env.Environment(
         rtenv,
-        admin_jid='animus@wayround.org'
+        host=host,
+        port=port,
+        admin_jid=main_admin
         )
 
-    env.start()
+    threading.Thread(
+        name="Site Thread",
+        target=env.start
+        ).start()
+
+    bot.set_site(env)
+    env.set_bot(bot)
+
+    threading.Thread(
+        name="Bot Thread",
+        target=bot.run,
+        args=(jid, xmpp_connection_info, xmpp_auth_info,),
+        kwargs={'exit_event':exit_event}
+        ).start()
+
+    try:
+        exit_event.wait()
+    except KeyboardInterrupt:
+        logging.info("exiting now")
+    except:
+        logging.exception("Some error while waiting for exit event")
+
+    exit_event.set()
+
+    bot.stop()
+    env.stop()
 
     return ret
