@@ -14,10 +14,6 @@ from mako.template import Template
 import org.wayround.softengine.rtenv
 import org.wayround.tasktracker.env
 
-template_dir = os.path.join(os.path.dirname(__file__), 'templates')
-css_dir = os.path.join(os.path.dirname(__file__), 'css')
-js_dir = os.path.join(os.path.dirname(__file__), 'js')
-
 class WrongPageAction(Exception): pass
 class CreatingAlreadyExistingProject(Exception): pass
 class EditingNotExistingProject(Exception): pass
@@ -27,6 +23,41 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
     def __init__(self, rtenv):
 
         self.module_name = 'org_wayround_tasktracker_modules_TaskTracker'
+
+        self.session_lifetime = 24 * 60 * 60
+
+        self.site_roles = [
+            'admin', 'user', 'guest'
+            ]
+
+        self.priorities = list('123456789')
+
+        self.statuses = ['open', 'closed', 'deleted']
+
+        self.resolutions = [
+            'None',
+            'More Data Required',
+            'Resolved',
+            'Wrong',
+            'Wont Fix',
+            'Duplicated',
+            'Duplicates',
+            'Paused'
+            ]
+
+        self.relation_types = [
+            'relates',
+            'duplicates',
+            'duplicated',
+            'blocks',
+            'blocked',
+            'precedes',
+            'follows'
+            ]
+
+        self.template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+        self.css_dir = os.path.join(os.path.dirname(__file__), 'css')
+        self.js_dir = os.path.join(os.path.dirname(__file__), 'js')
 
         self.rtenv = rtenv
 
@@ -380,8 +411,6 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         for i in [
             'html',
-            'register',
-            'login',
             'admin',
             'project_page',
             'project_list',
@@ -402,7 +431,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             'site_roles',
             ]:
             self.rtenv.templates[self.module_name][i] = Template(
-                filename=os.path.join(template_dir, '{}.html'.format(i)),
+                filename=os.path.join(self.template_dir, '{}.html'.format(i)),
                 format_exceptions=False
                 )
 
@@ -580,32 +609,32 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
     def issue_priority_selector_tpl(self, select):
 
-        if not select in org.wayround.tasktracker.env.PRIORITIES:
+        if not select in self.priorities:
             raise ValueError("Wrong priority `select' value")
 
         return self.rtenv.templates[self.module_name]['selector_priority'].render(
             selected=select,
-            options=org.wayround.tasktracker.env.PRIORITIES
+            options=self.priorities
             )
 
     def issue_status_selector_tpl(self, selected):
 
-        if not selected in org.wayround.tasktracker.env.STATUSES:
+        if not selected in self.statuses:
             raise ValueError("Wrong status `selected' value")
 
         return self.rtenv.templates[self.module_name]['selector_status'].render(
             selected=selected,
-            options=org.wayround.tasktracker.env.STATUSES
+            options=self.statuses
             )
 
     def issue_resolution_selector_tpl(self, selected):
 
-        if not selected in org.wayround.tasktracker.env.RESOLUTIONS:
+        if not selected in self.resolutions:
             raise ValueError("Wrong resolution `selected' value")
 
         return self.rtenv.templates[self.module_name]['selector_resolution'].render(
             selected=selected,
-            options=org.wayround.tasktracker.env.RESOLUTIONS
+            options=self.resolutions
             )
 
     def edit_issue_tpl(
@@ -651,7 +680,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             comments=comments,
             comment=comment,
             relations=relations,
-            relation_types=org.wayround.tasktracker.env.RELATION_TYPES,
+            relation_types=self.relation_types,
             get_issue=self.get_issue
             )
 
@@ -716,10 +745,10 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             )
 
     def css(self, filename):
-        return bottle.static_file(filename, root=css_dir)
+        return bottle.static_file(filename, root=self.css_dir)
 
     def js(self, filename):
-        return bottle.static_file(filename, root=js_dir)
+        return bottle.static_file(filename, root=self.js_dir)
 
     def get_random_bytes(self):
 
@@ -744,12 +773,12 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
     def get_random_hash(self):
         return self.hash_for_get_random_bytes(self.get_random_bytes())
 
-    def _get_session_by_x(self, data, what='jid'):
+    def _get_session_by_x(self, data, what, session_lifetime):
 
         if not what in ['jid', 'cookie']:
             raise ValueError("Wrong `what' parameter")
 
-        self.cleanup_sessions()
+        self.cleanup_sessions(session_lifetime)
 
         s = None
 
@@ -773,17 +802,17 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         return s
 
 
-    def get_session_by_cookie(self, cookie):
-        return self._get_session_by_x(cookie, 'cookie')
+    def get_session_by_cookie(self, cookie, session_lifetime):
+        return self._get_session_by_x(cookie, 'cookie', session_lifetime)
 
-    def get_session_by_jid(self, jid):
-        return self._get_session_by_x(jid, 'jid')
+    def get_session_by_jid(self, jid, session_lifetime):
+        return self._get_session_by_x(jid, 'jid', session_lifetime)
 
-    def new_session(self):
+    def new_session(self, session_lifetime):
 
         new_hash = self.get_random_hash()
 
-        while self.get_session_by_cookie(new_hash) != None:
+        while self.get_session_by_cookie(new_hash, session_lifetime) != None:
             new_hash = self.get_random_hash()
 
         s = self.rtenv.models[self.module_name]['Session']()
@@ -791,11 +820,11 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         self.rtenv.db.sess.add(s)
         self.rtenv.db.sess.commit()
-        self.renew_session(s)
+        self.renew_session(s, session_lifetime)
 
         return s
 
-    def renew_session(self, session):
+    def renew_session(self, session, session_lifetime):
         """
         Keeps alive already existing session
         """
@@ -814,7 +843,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         session.session_valid_till = (
             datetime.datetime.now() +
-            datetime.timedelta(seconds=org.wayround.tasktracker.env.session_lifetime)
+            datetime.timedelta(seconds=session_lifetime)
             )
 
         self.rtenv.db.sess.commit()
@@ -839,7 +868,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         return
 
-    def cleanup_sessions(self):
+    def cleanup_sessions(self, session_lifetime):
 
         sessions = self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['Session']
@@ -859,7 +888,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             if i.session_valid_till > (
                 datetime.datetime.now() +
                 datetime.timedelta(
-                    seconds=org.wayround.tasktracker.env.session_lifetime
+                    seconds=session_lifetime
                     )
                 ):
 
@@ -1241,6 +1270,19 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
                 role = role_found
 
                 role.role = roles[i]
+
+        self.rtenv.db.sess.commit()
+
+        return
+
+    def add_site_role(self, jid, role='user'):
+
+        siterole = self.rtenv.models[self.module_name]['SiteRole']()
+
+        siterole.jid = jid
+        siterole.role = role
+
+        self.rtenv.db.sess.add(siterole)
 
         self.rtenv.db.sess.commit()
 

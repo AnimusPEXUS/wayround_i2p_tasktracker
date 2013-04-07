@@ -55,7 +55,9 @@ def main(
 
     db = org.wayround.softengine.rtenv.DB(
         db_config,
-        echo=db_echo
+        echo=db_echo,
+        # FIXME: this is unsafe?
+        connect_args={'check_same_thread':False}
         )
 
     rtenv = org.wayround.softengine.rtenv.RuntimeEnvironment(db)

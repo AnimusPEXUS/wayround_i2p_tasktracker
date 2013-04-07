@@ -11,34 +11,6 @@ from org.wayround.utils.list import list_strip_remove_empty_remove_duplicated_li
 
 import org.wayround.softengine.rtenv
 
-ttm = 'org_wayround_tasktracker_modules_TaskTracker'
-session_cookie_name = 'org_wayround_tasktracker_session_cookie'
-session_lifetime = 24 * 60 * 60
-
-SITE_ROLES = [
-    'admin', 'user', 'guest'
-    ]
-
-PRIORITIES = list('123456789')
-
-STATUSES = ['open', 'closed', 'deleted']
-
-RESOLUTIONS = [
-    'None', 'More Data Required', 'Resolved',
-    'Wrong', "Wont Fix", 'Duplicated', 'Duplicates',
-    'Paused'
-    ]
-
-RELATION_TYPES = [
-    'relates',
-    'duplicates',
-    'duplicated',
-    'blocks',
-    'blocked',
-    'precedes',
-    'follows'
-    ]
-
 def convert_cb_params_to_boolean(params, names):
 
     for i in names:
@@ -91,6 +63,12 @@ class Environment:
         admin_jid='example@ex.nonexisting'
         ):
 
+        self.ttm = 'org_wayround_tasktracker_modules_TaskTracker'
+
+        self.session_cookie_name = 'org_wayround_tasktracker_session_cookie'
+
+        self.session_lifetime = 24 * 60 * 60
+
         self._bot = None
 
         self.admin_jid = admin_jid
@@ -104,8 +82,8 @@ class Environment:
 
         self.app.route('/', 'GET', self.index)
 
-        self.app.route('/js/<filename>', 'GET', self.rtenv.modules[ttm].js)
-        self.app.route('/css/<filename>', 'GET', self.rtenv.modules[ttm].css)
+        self.app.route('/js/<filename>', 'GET', self.rtenv.modules[self.ttm].js)
+        self.app.route('/css/<filename>', 'GET', self.rtenv.modules[self.ttm].css)
 
 
         self.app.route('/settings', 'GET', self.site_settings)
@@ -114,12 +92,7 @@ class Environment:
         self.app.route('/roles', 'GET', self.site_roles)
         self.app.route('/roles', 'POST', self.site_roles_post)
 
-        self.app.route('/login', 'GET', self.login)
-        self.app.route('/login', 'POST', self.login_post)
         self.app.route('/logout', 'GET', self.logout)
-
-        self.app.route('/register', 'GET', self.register)
-        self.app.route('/register', 'POST', self.register_post)
 
         self.app.route('/new_project', 'GET', self.new_project)
         self.app.route('/new_project', 'POST', self.new_project_post)
@@ -182,7 +155,7 @@ class Environment:
 
         lst.append(PageAction('Project List', '/'))
 
-        if mode == 'index':
+        if mode == 'index' and rts_object.site_role == 'admin':
             lst.append(PageAction('New Project', '/new_project'))
 
         if project_name:
@@ -214,10 +187,6 @@ class Environment:
                     )
                 )
 
-        if rts_object.site_role == 'admin':
-            lst.append(PageAction('Site Settings', '/settings'))
-            lst.append(PageAction('Site Roles', '/roles'))
-
         if project_name:
             if (rts_object.site_role == 'admin' or
                 (project_name in rts_object.project_roles and
@@ -240,9 +209,13 @@ class Environment:
                         )
                     )
 
-        ret = self.rtenv.modules[ttm].actions_tpl(
+        if rts_object.site_role == 'admin':
+            lst.append(PageAction('Site Settings', '/settings'))
+            lst.append(PageAction('Site Roles', '/roles'))
+
+        ret = self.rtenv.modules[self.ttm].actions_tpl(
             lst,
-            session_actions=self.rtenv.modules[ttm].session_tpl(
+            session_actions=self.rtenv.modules[self.ttm].session_tpl(
                 rts_object=rts_object
                 )
             )
@@ -254,25 +227,36 @@ class Environment:
 
 
     def generate_rts_object(self):
+
         """
         rts - run time session
         """
 
         s = None
 
-        if not session_cookie_name in bottle.request.cookies:
-            s = self.rtenv.modules[ttm].new_session()
-            bottle.response.set_cookie(session_cookie_name, s.session_cookie)
+        if not self.session_cookie_name in bottle.request.cookies:
+            s = self.rtenv.modules[self.ttm].new_session(self.session_lifetime)
+            bottle.response.set_cookie(self.session_cookie_name, s.session_cookie)
         else:
-            s = self.rtenv.modules[ttm].get_session_by_cookie(
-                bottle.request.cookies.get(session_cookie_name, None)
+            
+            s = self.rtenv.modules[self.ttm].get_session_by_cookie(
+                bottle.request.cookies.get(self.session_cookie_name, None),
+                self.session_lifetime
                 )
+
             if s:
-                self.rtenv.modules[ttm].renew_session(s)
+                self.rtenv.modules[self.ttm].renew_session(
+                    s,
+                    self.session_lifetime
+                    )
             else:
-                s = self.rtenv.modules[ttm].new_session()
+
+                s = self.rtenv.modules[self.ttm].new_session(
+                    self.session_lifetime
+                    )
+
                 bottle.response.set_cookie(
-                    session_cookie_name,
+                    self.session_cookie_name,
                     s.session_cookie
                     )
 
@@ -280,30 +264,42 @@ class Environment:
         ret.id = s.session_cookie
         ret.jid = s.jid
         ret.session_valid_till = s.session_valid_till
-        ret.project_roles = (
-            self.rtenv.modules[ttm].get_project_roles_of_jid_dict(
-                s.jid
+
+        roles = self.get_site_roles_for_jid(s.jid)
+
+        ret.project_roles = roles['project_roles']
+        ret.site_role = roles['site_role']
+
+        return ret
+
+    def get_site_roles_for_jid(self, jid=None):
+
+        ret = {}
+
+        ret['project_roles'] = (
+            self.rtenv.modules[self.ttm].get_project_roles_of_jid_dict(
+                jid
                 )
             )
 
-        ret.site_role = 'guest'
+        ret['site_role'] = 'guest'
 
-        if s.jid == self.admin_jid:
-            ret.site_role = 'admin'
+        if jid == self.admin_jid:
+            ret['site_role'] = 'admin'
         else:
-            site_role = self.rtenv.modules[ttm].get_site_role(s.jid)
+            site_role = self.rtenv.modules[self.ttm].get_site_role(jid)
 
             if site_role == None:
-                ret.site_role = 'guest'
+                ret['site_role'] = 'guest'
             else:
                 if not site_role.role in ['admin', 'user', 'blocked']:
-                    ret.site_role = 'guest'
+                    ret['site_role'] = 'guest'
                 else:
-                    ret.site_role = site_role.role
+                    ret['site_role'] = site_role.role
 
-        if ret.site_role in ['admin', 'moder', 'blocked', 'guest']:
-            for i in ret.project_roles.keys():
-                ret.project_roles[i] = ret.site_role
+        if ret['site_role'] in ['admin', 'moder', 'blocked', 'guest']:
+            for i in ret['project_roles'].keys():
+                ret['project_roles'][i] = ret['site_role']
 
         return ret
 
@@ -311,9 +307,9 @@ class Environment:
 
         rts = self.generate_rts_object()
 
-        projects = self.rtenv.modules[ttm].get_projects()
+        projects = self.rtenv.modules[self.ttm].get_projects()
 
-        project_list = self.rtenv.modules[ttm].project_list_tpl(
+        project_list = self.rtenv.modules[self.ttm].project_list_tpl(
             projects,
             rts_object=rts
             )
@@ -323,7 +319,7 @@ class Environment:
             rts_object=rts
             )
 
-        ret = self.rtenv.modules[ttm].html_tpl(
+        ret = self.rtenv.modules[self.ttm].html_tpl(
             title="Test title",
             actions=actions,
             body=project_list
@@ -349,35 +345,35 @@ class Environment:
             rts_object=rts
             )
 
-        site_title = self.rtenv.modules[ttm].get_site_setting(
+        site_title = self.rtenv.modules[self.ttm].get_site_setting(
             'site_title',
             'Not titled'
             )
 
-        site_description = self.rtenv.modules[ttm].get_site_setting(
+        site_description = self.rtenv.modules[self.ttm].get_site_setting(
             'site_description',
             'None'
             )
 
-        user_can_register_self = self.rtenv.modules[ttm].get_site_setting(
+        user_can_register_self = self.rtenv.modules[self.ttm].get_site_setting(
             'user_can_register_self',
             False
             ) == '1'
 
-        user_can_create_projects = self.rtenv.modules[ttm].get_site_setting(
+        user_can_create_projects = self.rtenv.modules[self.ttm].get_site_setting(
             'user_can_create_projects',
             False
             ) == '1'
 
 
-        settings_page = self.rtenv.modules[ttm].site_settings_tpl(
+        settings_page = self.rtenv.modules[self.ttm].site_settings_tpl(
             site_title,
             site_description,
             user_can_register_self,
             user_can_create_projects
             )
 
-        ret = self.rtenv.modules[ttm].html_tpl(
+        ret = self.rtenv.modules[self.ttm].html_tpl(
             title="Change site settings",
             actions=actions,
             body=settings_page
@@ -408,22 +404,22 @@ class Environment:
             ]
             )
 
-        self.rtenv.modules[ttm].set_site_setting(
+        self.rtenv.modules[self.ttm].set_site_setting(
             'site_title',
             decoded_params['site_title']
             )
 
-        self.rtenv.modules[ttm].set_site_setting(
+        self.rtenv.modules[self.ttm].set_site_setting(
             'site_description',
             decoded_params['site_description']
             )
 
-        self.rtenv.modules[ttm].set_site_setting(
+        self.rtenv.modules[self.ttm].set_site_setting(
             'user_can_register_self',
             decoded_params['user_can_register_self']
             )
 
-        self.rtenv.modules[ttm].set_site_setting(
+        self.rtenv.modules[self.ttm].set_site_setting(
             'user_can_create_projects',
             decoded_params['user_can_create_projects']
             )
@@ -446,7 +442,7 @@ class Environment:
             rts_object=rts
             )
 
-        roles = self.rtenv.modules[ttm].get_site_roles_dict()
+        roles = self.rtenv.modules[self.ttm].get_site_roles_dict()
 
         admins = []
         moders = []
@@ -472,14 +468,14 @@ class Environment:
         users.sort()
         blocked.sort()
 
-        roles_page = self.rtenv.modules[ttm].site_roles_tpl(
+        roles_page = self.rtenv.modules[self.ttm].site_roles_tpl(
             admins='\n'.join(admins),
             moders='\n'.join(moders),
             users='\n'.join(users),
             blocked='\n'.join(blocked)
             )
 
-        ret = self.rtenv.modules[ttm].html_tpl(
+        ret = self.rtenv.modules[self.ttm].html_tpl(
             title="Change site roles",
             actions=actions,
             body=roles_page
@@ -542,7 +538,7 @@ class Environment:
 
         del blocked
 
-        roles = self.rtenv.modules[ttm].set_site_roles(roles)
+        roles = self.rtenv.modules[self.ttm].set_site_roles(roles)
 
         bottle.response.status = 303
         bottle.response.set_header('Location', '')
@@ -551,7 +547,7 @@ class Environment:
 
     def new_project_access_chec(self, rts):
 
-        if rts.site_role != 'admin' and self.rtenv.modules[ttm].get_site_setting(
+        if rts.site_role != 'admin' and self.rtenv.modules[self.ttm].get_site_setting(
             'user_can_create_projects',
             False
             ) != '1':
@@ -571,11 +567,11 @@ class Environment:
             )
 
 
-        edit_project_tpl = self.rtenv.modules[ttm].edit_project_tpl(
+        edit_project_tpl = self.rtenv.modules[self.ttm].edit_project_tpl(
             mode='new'
             )
 
-        ret = self.rtenv.modules[ttm].html_tpl(
+        ret = self.rtenv.modules[self.ttm].html_tpl(
             title="Create new project",
             actions=actions,
             body=edit_project_tpl
@@ -604,14 +600,14 @@ class Environment:
 
         name = decoded_params['name']
 
-        self.rtenv.modules[ttm].new_project(
+        self.rtenv.modules[self.ttm].new_project(
             name,
             decoded_params['title'],
             decoded_params['description'],
             decoded_params['guests_access_allowed']
             )
 
-        ret = self.rtenv.modules[ttm].html_tpl(
+        ret = self.rtenv.modules[self.ttm].html_tpl(
             title="Project creation result",
             actions='',
             body=''
@@ -644,7 +640,7 @@ class Environment:
 
         ret = ''
 
-        p = self.rtenv.modules[ttm].get_project(project_name)
+        p = self.rtenv.modules[self.ttm].get_project(project_name)
 
         self.edit_project_access_check(rts, p)
 
@@ -659,7 +655,7 @@ class Environment:
                 project_name=project_name
                 )
 
-            edit_project_tpl = self.rtenv.modules[ttm].edit_project_tpl(
+            edit_project_tpl = self.rtenv.modules[self.ttm].edit_project_tpl(
                 mode='edit',
                 name=project_name,
                 title=p.title,
@@ -667,7 +663,7 @@ class Environment:
                 guests_access_allowed=p.guests_access_allowed
                 )
 
-            ret = self.rtenv.modules[ttm].html_tpl(
+            ret = self.rtenv.modules[self.ttm].html_tpl(
                 title="Edit project",
                 actions=actions,
                 body=edit_project_tpl
@@ -692,14 +688,14 @@ class Environment:
             ]
             )
 
-        p = self.rtenv.modules[ttm].get_project(project_name)
+        p = self.rtenv.modules[self.ttm].get_project(project_name)
 
         self.edit_project_access_check(rts, p)
 
         if not p:
             raise bottle.HTTPError(404, body="Project not found")
 
-        p = self.rtenv.modules[ttm].edit_project(
+        p = self.rtenv.modules[self.ttm].edit_project(
             project_name,
             decoded_params['title'],
             decoded_params['description'],
@@ -722,7 +718,7 @@ class Environment:
 
         rts = self.generate_rts_object()
 
-        p = self.rtenv.modules[ttm].get_project(project_name)
+        p = self.rtenv.modules[self.ttm].get_project(project_name)
 
         self.project_roles_access_check(rts, p)
 
@@ -734,7 +730,7 @@ class Environment:
             project_name=project_name
             )
 
-        roles = self.rtenv.modules[ttm].get_site_roles_dict()
+        roles = self.rtenv.modules[self.ttm].get_site_roles_dict()
 
         site_admins = []
         site_moders = []
@@ -760,7 +756,7 @@ class Environment:
         site_users.sort()
         site_blocked.sort()
 
-        roles = self.rtenv.modules[ttm].get_project_roles_dict(project_name)
+        roles = self.rtenv.modules[self.ttm].get_project_roles_dict(project_name)
 
         admins = []
         moders = []
@@ -786,7 +782,7 @@ class Environment:
         users.sort()
         blocked.sort()
 
-        roles_page = self.rtenv.modules[ttm].project_roles_tpl(
+        roles_page = self.rtenv.modules[self.ttm].project_roles_tpl(
             admins='\n'.join(admins),
             moders='\n'.join(moders),
             users='\n'.join(users),
@@ -798,7 +794,7 @@ class Environment:
             god=self.admin_jid
             )
 
-        ret = self.rtenv.modules[ttm].html_tpl(
+        ret = self.rtenv.modules[self.ttm].html_tpl(
             title="Change project roles",
             actions=actions,
             body=roles_page
@@ -862,100 +858,19 @@ class Environment:
 
         del blocked
 
-        roles = self.rtenv.modules[ttm].set_site_roles(roles)
+        roles = self.rtenv.modules[self.ttm].set_site_roles(roles)
 
         bottle.response.status = 303
         bottle.response.set_header('Location', '')
 
         return
 
-    def login(self):
-
-        rts = self.generate_rts_object()
-
-        actions = self.get_page_actions(
-            mode='login',
-            rts_object=rts
-            )
-
-        ret = self.rtenv.modules[ttm].html_tpl(
-            title="Login",
-            actions=actions,
-            body=self.rtenv.modules[ttm].login_tpl()
-            )
-
-        return ret
-
-    def login_post(self):
-
-        for i in ['jid']:
-            if not i in bottle.request.params:
-                raise KeyError("parameter `{}' must be passed".format(i))
-
-        decoded_params = bottle.request.params.decode('utf-8')
-
-        jid = decoded_params['jid']
-
-        #        if jid == self.admin_jid:
-
-        s = self.rtenv.modules[ttm].get_session_by_cookie(
-            bottle.request.cookies.get(session_cookie_name, None)
-            )
-
-        self.rtenv.modules[ttm].assign_jid_to_session(s, jid)
-
-        bottle.response.status = 303
-        bottle.response.set_header('Location', '/')
-#        bottle.response.set_header('Cache-Control', 'no-cache')
-
-        return
-
     def logout(self):
-        bottle.response.delete_cookie(session_cookie_name)
+        bottle.response.delete_cookie(self.session_cookie_name)
         bottle.response.status = 303
         bottle.response.set_header('Location', '/')
 #        bottle.response.set_header('Cache-Control', 'no-cache')
 #        bottle.redirect('/', code=200)
-
-    def register_access_check(self, rts):
-
-        if rts.jid != None or self.rtenv.modules[ttm].get_site_setting(
-            'user_can_register_self',
-            False
-            ) != '1':
-            raise bottle.HTTPError(403, "Not Allowed")
-
-        return
-
-    def register(self):
-
-        rts = self.generate_rts_object()
-
-        self.register_access_check(rts)
-
-        actions = self.get_page_actions(
-            mode='register',
-            rts_object=rts
-            )
-
-        register_tpl = self.rtenv.modules[ttm].register_tpl()
-
-        ret = self.rtenv.modules[ttm].html_tpl(
-            title="Test title",
-            actions=actions,
-            session='',
-            body=register_tpl
-            )
-
-        return ret
-
-    def register_post(self):
-
-        rts = self.generate_rts_object()
-
-        self.register_access_check(rts)
-
-        return "Not implemented. Go back."
 
     def redirect_to_project_view(self, project_name):
         bottle.response.status = 303
@@ -991,7 +906,7 @@ class Environment:
 
         rts = self.generate_rts_object()
 
-        p = self.rtenv.modules[ttm].get_project(project_name)
+        p = self.rtenv.modules[self.ttm].get_project(project_name)
 
         if not p:
             raise bottle.HTTPError(404, body="Project not found")
@@ -1006,7 +921,7 @@ class Environment:
                 rts_object=rts
                 )
 
-            issues = self.rtenv.modules[ttm].get_project_issues(project_name)
+            issues = self.rtenv.modules[self.ttm].get_project_issues(project_name)
 
             opened = []
             closed = []
@@ -1023,24 +938,24 @@ class Environment:
                     deleted.append(i)
 
 
-            open_table = self.rtenv.modules[ttm].issue_teaser_table_tpl(opened)
+            open_table = self.rtenv.modules[self.ttm].issue_teaser_table_tpl(opened)
 
-            closed_table = self.rtenv.modules[ttm].issue_teaser_table_tpl(
+            closed_table = self.rtenv.modules[self.ttm].issue_teaser_table_tpl(
                 closed
                 )
 
-            deleted_table = self.rtenv.modules[ttm].issue_teaser_table_tpl(
+            deleted_table = self.rtenv.modules[self.ttm].issue_teaser_table_tpl(
                 deleted
                 )
 
 
-            project_page = self.rtenv.modules[ttm].project_page_tpl(
+            project_page = self.rtenv.modules[self.ttm].project_page_tpl(
                 open_issue_table=open_table,
                 closed_issue_table=closed_table,
                 deleted_issue_table=deleted_table
                 )
 
-            ret = self.rtenv.modules[ttm].html_tpl(
+            ret = self.rtenv.modules[self.ttm].html_tpl(
                 title="`{}' issues".format(p.title),
                 actions=actions,
                 body=project_page
@@ -1071,7 +986,7 @@ class Environment:
 
         rts = self.generate_rts_object()
 
-        p = self.rtenv.modules[ttm].get_project(project_name)
+        p = self.rtenv.modules[self.ttm].get_project(project_name)
 
         self.new_issue_access_check(rts, p)
 
@@ -1086,13 +1001,13 @@ class Environment:
                 project_name=project_name
                 )
 
-            edit_issue_tpl = self.rtenv.modules[ttm].edit_issue_tpl(
+            edit_issue_tpl = self.rtenv.modules[self.ttm].edit_issue_tpl(
                 mode='new',
                 project_name=p.name,
                 project_title=p.title
                 )
 
-            ret = self.rtenv.modules[ttm].html_tpl(
+            ret = self.rtenv.modules[self.ttm].html_tpl(
                 title="Create new issue",
                 actions=actions,
                 body=edit_issue_tpl
@@ -1104,7 +1019,7 @@ class Environment:
 
         rts = self.generate_rts_object()
 
-        p = self.rtenv.modules[ttm].get_project(project_name)
+        p = self.rtenv.modules[self.ttm].get_project(project_name)
 
         self.new_issue_access_check(rts, p)
 
@@ -1126,7 +1041,7 @@ class Environment:
         if decoded_params['submit_type'] != 'issue_edit':
             raise bottle.HTTPError(400, "Wrong editing mode")
 
-        issue = self.rtenv.modules[ttm].new_issue(
+        issue = self.rtenv.modules[self.ttm].new_issue(
             project_name=project_name,
             title=decoded_params['title'],
             priority=decoded_params['priority'],
@@ -1135,7 +1050,7 @@ class Environment:
             description=decoded_params['description']
             )
 
-        ret = self.rtenv.modules[ttm].html_tpl(
+        ret = self.rtenv.modules[self.ttm].html_tpl(
             title="Issue creation result",
             actions='',
             body=''
@@ -1150,7 +1065,7 @@ class Environment:
                 )
             }
 
-        self.rtenv.modules[ttm].issue_set_roles(issue.issue_id, people)
+        self.rtenv.modules[self.ttm].issue_set_roles(issue.issue_id, people)
 
         bottle.response.status = 303
         bottle.response.set_header(
@@ -1170,11 +1085,11 @@ class Environment:
 
         rts = self.generate_rts_object()
 
-        project = self.rtenv.modules[ttm].get_project(project_name)
+        project = self.rtenv.modules[self.ttm].get_project(project_name)
 
         self.view_issue_access_check(rts, project)
 
-        issue = self.rtenv.modules[ttm].get_issue(issue_id)
+        issue = self.rtenv.modules[self.ttm].get_issue(issue_id)
 
         if not project:
             raise bottle.HTTPError(404, body="Project not found")
@@ -1196,13 +1111,13 @@ class Environment:
                 rts_object=rts
                 )
 
-            updates = self.rtenv.modules[ttm].get_issue_updates(issue_id)
+            updates = self.rtenv.modules[self.ttm].get_issue_updates(issue_id)
 
-            updates_table = self.rtenv.modules[ttm].issue_update_table_tpl(updates)
+            updates_table = self.rtenv.modules[self.ttm].issue_update_table_tpl(updates)
 
-            people = self.rtenv.modules[ttm].issue_get_roles(issue_id)
+            people = self.rtenv.modules[self.ttm].issue_get_roles(issue_id)
 
-            edit_issue_tpl = self.rtenv.modules[ttm].edit_issue_tpl(
+            edit_issue_tpl = self.rtenv.modules[self.ttm].edit_issue_tpl(
                 mode='view',
                 issue_id=issue.issue_id,
                 project_name=issue.project_name,
@@ -1218,10 +1133,10 @@ class Environment:
                 updated_date=issue.updation_date,
                 comments=updates_table,
                 comment='',
-                relations=self.rtenv.modules[ttm].issue_get_relations(issue_id)
+                relations=self.rtenv.modules[self.ttm].issue_get_relations(issue_id)
                 )
 
-            ret = self.rtenv.modules[ttm].html_tpl(
+            ret = self.rtenv.modules[self.ttm].html_tpl(
                 title="Edit issue",
                 actions=actions,
                 body=edit_issue_tpl
@@ -1258,11 +1173,11 @@ class Environment:
 
             rts = self.generate_rts_object()
 
-            project = self.rtenv.modules[ttm].get_project(project_name)
+            project = self.rtenv.modules[self.ttm].get_project(project_name)
 
             self.edit_issue_post_access_check(rts, project)
 
-            issue = self.rtenv.modules[ttm].get_issue(issue_id)
+            issue = self.rtenv.modules[self.ttm].get_issue(issue_id)
 
             if not project:
                 raise bottle.HTTPError(404, body="Project not found")
@@ -1280,7 +1195,7 @@ class Environment:
 
                 current_date = datetime.datetime.now()
 
-                people = self.rtenv.modules[ttm].issue_get_roles(issue_id)
+                people = self.rtenv.modules[self.ttm].issue_get_roles(issue_id)
 
                 _t = list_strip_remove_empty_remove_duplicated_lines(
                     decoded_params['assigned_to'].splitlines()
@@ -1321,7 +1236,7 @@ class Environment:
                         corrected_watchers.splitlines()
                         ))
 
-                self.rtenv.modules[ttm].make_issue_update(
+                self.rtenv.modules[self.ttm].make_issue_update(
                     issue_id=issue_id,
                     title_old=issue.title,
                     title=decoded_params['title'],
@@ -1338,7 +1253,7 @@ class Environment:
                     date=current_date
                     )
 
-                ret = self.rtenv.modules[ttm].edit_issue(
+                ret = self.rtenv.modules[self.ttm].edit_issue(
                     issue_id=issue_id,
                     title=decoded_params['title'],
                     priority=decoded_params['priority'],
@@ -1357,7 +1272,7 @@ class Environment:
                         )
                     }
 
-                self.rtenv.modules[ttm].issue_set_roles(issue_id, people)
+                self.rtenv.modules[self.ttm].issue_set_roles(issue_id, people)
 
             bottle.response.status = 303
             bottle.response.set_header(
@@ -1379,11 +1294,11 @@ class Environment:
 
             rts = self.generate_rts_object()
 
-            project = self.rtenv.modules[ttm].get_project(project_name)
+            project = self.rtenv.modules[self.ttm].get_project(project_name)
 
             self.edit_issue_post_access_check(rts, project)
 
-            issue = self.rtenv.modules[ttm].get_issue(issue_id)
+            issue = self.rtenv.modules[self.ttm].get_issue(issue_id)
 
             if not project:
                 raise bottle.HTTPError(404, body="Project not found")
@@ -1399,7 +1314,7 @@ class Environment:
 
             else:
 
-                self.rtenv.modules[ttm].issue_del_relations(issue_id)
+                self.rtenv.modules[self.ttm].issue_del_relations(issue_id)
 
                 delete_relation_list = decoded_params.dict.get('delete_relation[]', [])
 
@@ -1414,7 +1329,7 @@ class Environment:
                     if rti == int(issue_id):
                         continue
 
-                    issu = self.rtenv.modules[ttm].get_issue(rti)
+                    issu = self.rtenv.modules[self.ttm].get_issue(rti)
 
                     if not issu:
                         continue
@@ -1428,7 +1343,7 @@ class Environment:
 
                     if not str(rti) in delete_relation_list:
 
-                        self.rtenv.modules[ttm].issue_add_relation(
+                        self.rtenv.modules[self.ttm].issue_add_relation(
                             int(issue_id),
                             rti,
                             rt
