@@ -468,26 +468,89 @@ class Bot:
 
                 if cmd == 'status':
 
-                    text = """
-Your site role: {}
+                    error = False
 
-Your project roles:
-""".format(roles['site_role'])
+                    jid_to_know = asker_jid
 
-                    projects = list(roles['project_roles'].keys())
-                    projects.sort()
+                    len_args = len(args)
 
-                    for i in projects:
+                    if len_args == 0:
+                        pass
 
-                        text += '{}: {}\n'.format(i, roles['project_roles'][i])
+                    elif len_args == 1:
 
-                    text += '\n'
+                        if roles['site_role'] == 'admin':
 
-                    ret_stanza.body = [
-                        org.wayround.xmpp.stanza_elements.Body(
-                            text=text
+                            jid_to_know = args[0]
+
+                            jfs = org.wayround.xmpp.core.jid_from_string(
+                                jid_to_know
+                                )
+
+                            if not jfs:
+
+                                messages.append(
+                                    {'type': 'error',
+                                     'text': "Invalid JID supplied"
+                                     }
+                                    )
+
+                                error = True
+
+                        else:
+
+                            messages.append(
+                                {'type': 'error',
+                                 'text': "You are not admin"}
+                                )
+
+                            error = True
+
+                    else:
+
+                        messages.append(
+                            {'type': 'error',
+                             'text': "Too many arguments"}
                             )
-                        ]
+
+                        error = True
+
+                    if not error:
+
+                        roles_to_print = roles
+
+                        if roles['site_role'] == 'admin':
+                            roles_to_print = self._site.get_site_roles_for_jid(
+                                jid_to_know,
+                                all_site_projects=True
+                                )
+
+                        text = """
+{jid} site role: {site_role}
+
+{jid} project roles:
+""".format(
+        site_role=roles_to_print['site_role'],
+        jid=jid_to_know
+        )
+
+                        projects = list(roles_to_print['project_roles'].keys())
+                        projects.sort()
+
+                        for i in projects:
+
+                            text += '    {}: {}\n'.format(
+                                i,
+                                roles_to_print['project_roles'][i]
+                                )
+
+                        text += '\n'
+
+                        ret_stanza.body = [
+                            org.wayround.xmpp.stanza_elements.Body(
+                                text=text
+                                )
+                            ]
 
                 elif cmd == 'register':
 
@@ -558,21 +621,31 @@ Your project roles:
 
                         else:
 
-                            try:
-                                self._site.rtenv.modules[self._site.ttm].add_site_role(
-                                    jid_to_reg,
-                                    role
-                                    )
-                            except:
-                                messages.append(
-                                    {'type':'error',
-                                     'text':"can't add role. is already registered?"}
-                                    )
+                            if ((roles['site_role'] == 'admin') or
+                                (roles['site_role'] != 'admin' and
+                                 self._site.register_access_check(asker_jid))):
+
+                                try:
+                                    self._site.rtenv.modules[self._site.ttm].add_site_role(
+                                        jid_to_reg,
+                                        role
+                                        )
+                                except:
+                                    messages.append(
+                                        {'type':'error',
+                                         'text':"can't add role. is already registered?"}
+                                        )
+                                else:
+                                    messages.append(
+                                        {'type':'info',
+                                         'text':'registration successful'}
+                                        )
                             else:
                                 messages.append(
-                                    {'type':'info',
-                                     'text':'registration successful'}
+                                    {'type':'error',
+                                     'text':"registration not allowed"}
                                     )
+
 
                 elif cmd == 'login':
 
@@ -596,14 +669,13 @@ Your project roles:
                         if roles['site_role'] == 'guest':
                             messages.append(
                                 {'type': 'error',
-                                 'text':"You are not registered"}
+                                 'text': "You are not registered"}
                                 )
                         else:
 
                             session = (
                                 self._site.rtenv.modules[self._site.ttm].get_session_by_cookie(
-                                    cookie,
-                                    self._site.session_lifetime
+                                    cookie
                                     )
                                 )
 
@@ -614,21 +686,35 @@ Your project roles:
                                     )
                             else:
 
-                                self._site.rtenv.modules[self._site.ttm].assign_jid_to_session(
-                                    session,
-                                    asker_jid
-                                    )
+                                if ((roles['site_role'] == 'admin') or
+                                    (roles['site_role'] != 'admin' and
+                                     self._site.login_access_check(asker_jid))):
 
-                                messages.append(
-                                    {'type': 'info',
-                                     'text':"Logged in"}
-                                    )
+                                    self._site.rtenv.modules[self._site.ttm].assign_jid_to_session(
+                                        session,
+                                        asker_jid
+                                        )
+
+                                    messages.append(
+                                        {'type': 'info',
+                                         'text': "Logged in"}
+                                        )
+
+                                else:
+
+                                    messages.append(
+                                        {'type': 'errlr',
+                                         'text': "Loggin forbidden"}
+                                        )
 
 
                 elif cmd == 'help':
 
                     text = """
 help                          this command
+
+status [JID]                  JID roles on site. defaults to asker. Only admin
+                              can define JID
 
 register [-r=ROLE] [JID]      register [self] or [somebody else](only admin can
                               do this) on site.

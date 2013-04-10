@@ -30,38 +30,39 @@ if description_diff != 'None':
     show_description = True
     
 %><tr>
-    <td>
-        <table id="issue_page_updates_table_level2">
+    <td class="issue_page_table_credentials_column"><div>${ date | x }</div>
+        <div>${ jid | x }</div></td>
+    <td class="issue_page_table_details_column">
+        <table class="issue_page_updates_table_level2">
             <tr>
-                <td>${ date | x }</td>
                 <td>
-                    <table>
+                    <table class="">
                         % if show_title_change:
                         <tr>
                             <td>Title:</td>
-                            <td>${ title_old | x }</td>
-                            <td>${ title | x }</td>
+                            <td class="issue_page_table_details_column_old">${ title_old | x }</td>
+                            <td class="issue_page_table_details_column_new">${ title | x }</td>
                         </tr>
                         % endif 
                         % if show_status_change:
                         <tr>
                             <td>Status:</td>
-                            <td>${ status_old | x }</td>
-                            <td>${ status | x }</td>
+                            <td class="issue_page_table_details_column_old">${ status_old | x }</td>
+                            <td class="issue_page_table_details_column_new">${ status | x }</td>
                         </tr>
                         % endif 
                         % if show_priority_change:
                         <tr>
                             <td>Priority:</td>
-                            <td>${ priority_old | x }</td>
-                            <td>${ priority | x }</td>
+                            <td class="issue_page_table_details_column_old">${ priority_old | x }</td>
+                            <td class="issue_page_table_details_column_new">${ priority | x }</td>
                         </tr>
                         % endif 
                         % if show_resolution_change:
                         <tr>
                             <td>Resolution:</td>
-                            <td>${ resolution_old | x }</td>
-                            <td>${ resolution | x }</td>
+                            <td class="issue_page_table_details_column_old">${ resolution_old | x }</td>
+                            <td class="issue_page_table_details_column_new">${ resolution | x }</td>
                         </tr>
                         % endif
                         % if show_assigned_to:
@@ -84,13 +85,13 @@ if description_diff != 'None':
                         % endif
                     </table>
                 </td>
-                % if len(comment) > 0:
+            </tr>
+            % if len(comment) > 0:
+            <tr>
                 <td><div class="control_title_normal">Comment:</div>
                     <div>${comment|x}</div></td>
-                % else:
-                <td></td>
-                % endif
             </tr>
+            % endif
         </table>
     </td>
 </tr>

@@ -14,6 +14,13 @@ elif mode == 'new':
     action = 'new_issue'
 
     display_settings = 'block'
+    
+def hide_show(control_name):
+    return (
+        "var a = document.getElementById('{control_name}'); "
+        "if (a.style.display=='block') {{ a.style.display='none' }} "
+        "else {{ a.style.display='block' }}"
+        ).format(control_name=control_name)
 
 %>
 % if mode == 'view':
@@ -118,7 +125,7 @@ elif mode == 'new':
                     </div>
                     <div>
                         <button type="button"
-                            onclick="var a = document.getElementById('relation_elements'); if (a.style.display=='block') { a.style.display='none' } else { a.style.display='block' }">Edit Relations</button>
+                            onclick="${ hide_show('relation_elements') | x }">Edit Relations</button>
                     </div>
                     <div id="relation_elements" style="display: None">
                         <form method="POST" action="">
@@ -142,9 +149,9 @@ elif mode == 'new':
                                     <td><input type="text"
                                             name="relation_target_id[]"
                                             value="${ i.target_issue_id | x }" /></td>
-                                    <td><input type="checkbox"
+                                    <td><label>remove relation? <input type="checkbox"
                                             name="delete_relation[]"
-                                            value="${ i.irid | x }" /></td>
+                                            value="${ i.irid | x }" /></label></td>
                                 </tr>
                                 % endfor
                                 % endif
@@ -205,7 +212,7 @@ elif mode == 'new':
         % if mode == 'view':
         <input type="hidden" name="issue_id" value="${issue_id|x}" />
         <div>
-            <button type="button" onclick="var a = document.getElementById('setting_elements'); if (a.style.display=='block') { a.style.display='none' } else { a.style.display='block' }">Edit Issue</button>
+            <button type="button" onclick="${ hide_show('setting_elements') | x }">Edit Issue</button>
         </div>
         % endif
         <div style="display: ${display_settings| x}" id="setting_elements">

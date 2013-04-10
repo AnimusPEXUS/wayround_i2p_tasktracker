@@ -1,6 +1,7 @@
-<tr>
-    <td><a href="/project/${project_name | u,x }/${ide | u,x }">${ ide|x}</a></td>
+<tr class="issue_teaser_table_td_prio${ priority | x }">
+    <td class="left_issue_teaser_table_td"><a href="/project/${project_name | u,x }/${ide | u,x }">${ '#' + str(ide) |x}</a></td>
     <td><a href="/project/${project_name | u,x }/${ide | u,x }">${caption|x}</a></td>
-    <td>${resolution|x}</td>
-    <td>${assigned|x}</td>
+    <td><a href="/project/${project_name | u,x }/${ide | u,x }">${resolution|x}</a></td>
+    <td><a href="/project/${project_name | u,x }/${ide | u,x }">${assigned|x}</a></td>
+    <td class="right_issue_teaser_table_td"><a href="/project/${project_name | u,x }/${ide | u,x }">${updated|x}</a></td>
 </tr>

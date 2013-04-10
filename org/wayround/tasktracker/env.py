@@ -67,8 +67,6 @@ class Environment:
 
         self.session_cookie_name = 'org_wayround_tasktracker_session_cookie'
 
-        self.session_lifetime = 24 * 60 * 60
-
         self._bot = None
 
         self.admin_jid = admin_jid
@@ -235,25 +233,22 @@ class Environment:
         s = None
 
         if not self.session_cookie_name in bottle.request.cookies:
-            s = self.rtenv.modules[self.ttm].new_session(self.session_lifetime)
-            bottle.response.set_cookie(self.session_cookie_name, s.session_cookie)
+            s = self.rtenv.modules[self.ttm].new_session()
+            bottle.response.set_cookie(
+                self.session_cookie_name,
+                s.session_cookie
+                )
         else:
-            
+
             s = self.rtenv.modules[self.ttm].get_session_by_cookie(
-                bottle.request.cookies.get(self.session_cookie_name, None),
-                self.session_lifetime
+                bottle.request.cookies.get(self.session_cookie_name, None)
                 )
 
             if s:
-                self.rtenv.modules[self.ttm].renew_session(
-                    s,
-                    self.session_lifetime
-                    )
+                self.rtenv.modules[self.ttm].renew_session(s)
             else:
 
-                s = self.rtenv.modules[self.ttm].new_session(
-                    self.session_lifetime
-                    )
+                s = self.rtenv.modules[self.ttm].new_session()
 
                 bottle.response.set_cookie(
                     self.session_cookie_name,
@@ -272,11 +267,19 @@ class Environment:
 
         return ret
 
-    def get_site_roles_for_jid(self, jid=None):
+    def get_site_roles_for_jid(self, jid=None, all_site_projects=False):
 
         ret = {}
 
-        ret['project_roles'] = (
+        ret['project_roles'] = {}
+
+        if all_site_projects:
+            all_projects = self.rtenv.modules[self.ttm].get_projects()
+
+            for i in all_projects:
+                ret['project_roles'][i.name] = 'guest'
+
+        ret['project_roles'].update(
             self.rtenv.modules[self.ttm].get_project_roles_of_jid_dict(
                 jid
                 )
@@ -865,6 +868,34 @@ class Environment:
 
         return
 
+    def login_access_check(self, jid):
+
+        ret = True
+
+        role = self.rtenv.modules[self.ttm].get_site_role(jid)
+
+        if not role or role.role == 'blocked':
+            ret = False
+
+        return ret
+
+
+
+    def register_access_check(self, jid):
+
+        ret = True
+
+        role = self.rtenv.modules[self.ttm].get_site_role(jid)
+
+        if role or not self.rtenv.modules[self.ttm].get_site_setting(
+            'user_can_register_self',
+            False
+            ):
+
+            ret = False
+
+        return ret
+
     def logout(self):
         bottle.response.delete_cookie(self.session_cookie_name)
         bottle.response.status = 303
@@ -1041,20 +1072,42 @@ class Environment:
         if decoded_params['submit_type'] != 'issue_edit':
             raise bottle.HTTPError(400, "Wrong editing mode")
 
+        current_date = datetime.datetime.now()
+
         issue = self.rtenv.modules[self.ttm].new_issue(
             project_name=project_name,
             title=decoded_params['title'],
             priority=decoded_params['priority'],
             status=decoded_params['status'],
             resolution=decoded_params['resolution'],
-            description=decoded_params['description']
+            description=decoded_params['description'],
+            creation_date=current_date
             )
 
-        ret = self.rtenv.modules[self.ttm].html_tpl(
-            title="Issue creation result",
-            actions='',
-            body=''
+        people = self.rtenv.modules[self.ttm].issue_get_roles(issue.issue_id)
+
+        self.make_issue_update(
+            rts,
+            issue.issue_id,
+            author_jid=rts.jid,
+            title_old='',
+            title=decoded_params['title'],
+            priority_old='',
+            priority=decoded_params['priority'],
+            status_old='',
+            status=decoded_params['status'],
+            resolution_old='',
+            resolution=decoded_params['resolution'],
+            description_old='',
+            description=decoded_params['description'],
+            current_issue_people=people,
+            assigned_to_text=decoded_params['assigned_to'],
+            watchers_text=decoded_params['watchers'],
+            comment='New issue created',
+            date=current_date
             )
+
+        ret = ''
 
         people = {
             'worker': list_strip_remove_empty_remove_duplicated_lines(
@@ -1137,12 +1190,99 @@ class Environment:
                 )
 
             ret = self.rtenv.modules[self.ttm].html_tpl(
-                title="Edit issue",
+                title="Issue #{ide}: {title}".format(
+                    ide=issue_id,
+                    title=issue.title
+                    ),
                 actions=actions,
                 body=edit_issue_tpl
                 )
 
         return ret
+
+    def make_issue_update(
+        self,
+        rts,
+        issue_id,
+        author_jid,
+        title_old,
+        title,
+        priority_old,
+        priority,
+        status_old,
+        status,
+        resolution_old,
+        resolution,
+        description_old,
+        description,
+
+        current_issue_people,
+
+        assigned_to_text,
+        watchers_text,
+
+        comment,
+        date
+        ):
+
+        _t = list_strip_remove_empty_remove_duplicated_lines(
+            assigned_to_text.splitlines()
+            )
+
+        _t.sort()
+        corrected_workers = '\n'.join(_t)
+
+        _t = list_strip_remove_empty_remove_duplicated_lines(
+            watchers_text.splitlines()
+            )
+        _t.sort()
+        corrected_watchers = '\n'.join(_t)
+
+
+        descr_diff = 'None'
+        if description_old != description:
+            descr_diff = '\n'.join(difflib.ndiff(
+                description_old.splitlines(),
+                description.splitlines()
+                ))
+
+        assigned_diff = 'None'
+        _t = '\n'.join(current_issue_people['worker'])
+        if _t != corrected_workers:
+            print("{}\n!={}".format(repr(_t), repr(corrected_workers)))
+            assigned_diff = '\n'.join(difflib.ndiff(
+                _t.splitlines(),
+                corrected_workers.splitlines()
+                ))
+
+        watchers_diff = 'None'
+        _t = '\n'.join(current_issue_people['watcher'])
+        if _t != corrected_watchers:
+            print("{}\n!={}".format(repr(_t), repr(corrected_watchers)))
+            watchers_diff = '\n'.join(difflib.ndiff(
+                _t.splitlines(),
+                corrected_watchers.splitlines()
+                ))
+
+        self.rtenv.modules[self.ttm].make_issue_update(
+            issue_id=issue_id,
+            author_jid=author_jid,
+            title_old=title_old,
+            title=title,
+            priority_old=priority_old,
+            priority=priority,
+            status_old=status_old,
+            status=status,
+            resolution_old=resolution_old,
+            resolution=resolution,
+            description_diff=descr_diff,
+            assigned_to_diff=assigned_diff,
+            watchers_diff=watchers_diff,
+            comment=comment,
+            date=date
+            )
+
+        return
 
     edit_issue_post_access_check = new_issue_access_check
 
@@ -1197,47 +1337,10 @@ class Environment:
 
                 people = self.rtenv.modules[self.ttm].issue_get_roles(issue_id)
 
-                _t = list_strip_remove_empty_remove_duplicated_lines(
-                    decoded_params['assigned_to'].splitlines()
-                    )
-
-                _t.sort()
-                corrected_workers = '\n'.join(_t)
-
-                _t = list_strip_remove_empty_remove_duplicated_lines(
-                    decoded_params['watchers'].splitlines()
-                    )
-                _t.sort()
-                corrected_watchers = '\n'.join(_t)
-
-
-                descr_diff = 'None'
-                if issue.description != decoded_params['description']:
-                    descr_diff = '\n'.join(difflib.ndiff(
-                        issue.description.splitlines(),
-                        decoded_params['description'].splitlines()
-                        ))
-
-                assigned_diff = 'None'
-                _t = '\n'.join(people['worker'])
-                if _t != corrected_workers:
-                    print("{}\n!={}".format(repr(_t), repr(corrected_workers)))
-                    assigned_diff = '\n'.join(difflib.ndiff(
-                        _t.splitlines(),
-                        corrected_workers.splitlines()
-                        ))
-
-                watchers_diff = 'None'
-                _t = '\n'.join(people['watcher'])
-                if _t != corrected_watchers:
-                    print("{}\n!={}".format(repr(_t), repr(corrected_watchers)))
-                    watchers_diff = '\n'.join(difflib.ndiff(
-                        _t.splitlines(),
-                        corrected_watchers.splitlines()
-                        ))
-
-                self.rtenv.modules[self.ttm].make_issue_update(
-                    issue_id=issue_id,
+                self.make_issue_update(
+                    rts,
+                    issue_id,
+                    author_jid=rts.jid,
                     title_old=issue.title,
                     title=decoded_params['title'],
                     priority_old=issue.priority,
@@ -1246,9 +1349,11 @@ class Environment:
                     status=decoded_params['status'],
                     resolution_old=issue.resolution,
                     resolution=decoded_params['resolution'],
-                    description_diff=descr_diff,
-                    assigned_to_diff=assigned_diff,
-                    watchers_diff=watchers_diff,
+                    description_old=issue.description,
+                    description=decoded_params['description'],
+                    current_issue_people=people,
+                    assigned_to_text=decoded_params['assigned_to'],
+                    watchers_text=decoded_params['watchers'],
                     comment=decoded_params['comment'],
                     date=current_date
                     )

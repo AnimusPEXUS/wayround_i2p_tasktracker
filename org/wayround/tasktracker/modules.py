@@ -27,7 +27,11 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         self.session_lifetime = 24 * 60 * 60
 
         self.site_roles = [
-            'admin', 'user', 'guest'
+            'admin', 'moder', 'user', 'guest'
+            ]
+
+        self.project_roles = [
+            'admin', 'moder', 'user', 'guest'
             ]
 
         self.priorities = list('123456789')
@@ -36,7 +40,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         self.resolutions = [
             'None',
-            'More Data Required',
+            'Assist Required',
             'Resolved',
             'Wrong',
             'Wont Fix',
@@ -197,6 +201,12 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
                 sqlalchemy.Integer,
                 nullable=False,
                 default=0
+                )
+
+            author_jid = sqlalchemy.Column(
+                sqlalchemy.UnicodeText,
+                nullable=True,
+                default=None
                 )
 
             title_old = sqlalchemy.Column(
@@ -495,10 +505,21 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
     def register_tpl(self):
         return self.rtenv.templates[self.module_name]['register'].render()
 
-    def issue_teaser_tpl(self, project_name='', ide='', caption='', resolution='', assigned=''):
+    def issue_teaser_tpl(
+        self,
+        project_name='',
+        ide='',
+        caption='',
+        resolution='',
+        updated='',
+        assigned='',
+        priority=''
+        ):
+
         return self.rtenv.templates[self.module_name]['issue_teaser'].render(
             project_name=project_name, ide=ide, caption=caption,
-            resolution=resolution, assigned=assigned
+            resolution=resolution, updated=updated, assigned=assigned,
+            priority=priority
             )
 
     def issue_teaser_table_tpl(self, issue_records):
@@ -506,6 +527,13 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         teasers = []
 
         for i in issue_records:
+
+            updated = ''
+
+            if i.updation_date:
+                updated = str(i.updation_date)
+            else:
+                updated = str(i.creation_date)
 
             assigned = ''
 
@@ -520,13 +548,16 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             else:
                 assigned = "{} people".format(len(issue_roles))
 
+
             teasers.append(
                 self.issue_teaser_tpl(
                     project_name=i.project_name,
                     ide=i.issue_id,
                     caption=i.title,
                     resolution=i.resolution,
-                    assigned=assigned
+                    updated=updated,
+                    assigned=assigned,
+                    priority=str(i.priority)
                     )
                 )
 
@@ -698,7 +729,8 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             assigned_to_diff='',
             watchers_diff='',
             comment='',
-            date=''
+            date='',
+            author_jid=''
             ):
 
         return self.rtenv.templates[self.module_name]['issue_update_row'].render(
@@ -714,7 +746,8 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             assigned_to_diff=assigned_to_diff,
             watchers_diff=watchers_diff,
             comment=comment,
-            date=date
+            date=date,
+            jid=author_jid
             )
 
     def issue_update_table_tpl(self, issue_updates):
@@ -736,7 +769,8 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
                     assigned_to_diff=i.assigned_to_diff,
                     watchers_diff=i.watchers_diff,
                     comment=i.comment,
-                    date=i.date
+                    date=i.date,
+                    author_jid=i.author_jid
                     )
                 )
 
@@ -773,46 +807,47 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
     def get_random_hash(self):
         return self.hash_for_get_random_bytes(self.get_random_bytes())
 
-    def _get_session_by_x(self, data, what, session_lifetime):
+    def _get_session_by_x(self, data, what):
 
         if not what in ['jid', 'cookie']:
             raise ValueError("Wrong `what' parameter")
 
-        self.cleanup_sessions(session_lifetime)
+        self.cleanup_sessions()
 
-        s = None
+        ret = None
 
         try:
             if what == 'cookie':
-                s = self.rtenv.db.sess.query(
+                ret = self.rtenv.db.sess.query(
                     self.rtenv.models[self.module_name]['Session']
                     ).filter_by(session_cookie=data).one()
 
             if what == 'jid':
-                s = self.rtenv.db.sess.query(
+                ret = self.rtenv.db.sess.query(
                     self.rtenv.models[self.module_name]['Session']
                     ).filter_by(jid=data).one()
 
         except sqlalchemy.orm.exc.NoResultFound:
             pass
         else:
-            if s.session_cookie == None or s.session_valid_till == None:
-                s = None
 
-        return s
+            if ret.session_cookie == None or ret.session_valid_till == None:
+                ret = None
+
+        return ret
 
 
-    def get_session_by_cookie(self, cookie, session_lifetime):
-        return self._get_session_by_x(cookie, 'cookie', session_lifetime)
+    def get_session_by_cookie(self, cookie):
+        return self._get_session_by_x(cookie, 'cookie')
 
-    def get_session_by_jid(self, jid, session_lifetime):
-        return self._get_session_by_x(jid, 'jid', session_lifetime)
+    def get_session_by_jid(self, jid):
+        return self._get_session_by_x(jid, 'jid')
 
-    def new_session(self, session_lifetime):
+    def new_session(self):
 
         new_hash = self.get_random_hash()
 
-        while self.get_session_by_cookie(new_hash, session_lifetime) != None:
+        while self.get_session_by_cookie(new_hash) != None:
             new_hash = self.get_random_hash()
 
         s = self.rtenv.models[self.module_name]['Session']()
@@ -820,11 +855,11 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         self.rtenv.db.sess.add(s)
         self.rtenv.db.sess.commit()
-        self.renew_session(s, session_lifetime)
+        self.renew_session(s)
 
         return s
 
-    def renew_session(self, session, session_lifetime):
+    def renew_session(self, session):
         """
         Keeps alive already existing session
         """
@@ -843,7 +878,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         session.session_valid_till = (
             datetime.datetime.now() +
-            datetime.timedelta(seconds=session_lifetime)
+            datetime.timedelta(seconds=self.session_lifetime)
             )
 
         self.rtenv.db.sess.commit()
@@ -856,11 +891,9 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             self.rtenv.models[self.module_name]['Session']
             ).all()
 
-        if session in sessions:
-            sessions.remove(session)
-
         for i in sessions:
-            self.rtenv.db.sess.delete(i)
+            if i.jid == jid:
+                self.rtenv.db.sess.delete(i)
 
         session.jid = jid
 
@@ -868,14 +901,14 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         return
 
-    def cleanup_sessions(self, session_lifetime):
+    def cleanup_sessions(self):
 
         sessions = self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['Session']
             ).all()
 
         for i in sessions[:]:
-            if i.session_valid_till == None:
+            if i.session_cookie == None or i.session_valid_till == None:
                 self.rtenv.db.sess.delete(i)
                 sessions.remove(i)
 
@@ -888,15 +921,10 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             if i.session_valid_till > (
                 datetime.datetime.now() +
                 datetime.timedelta(
-                    seconds=session_lifetime
+                    seconds=self.session_lifetime
                     )
                 ):
 
-                self.rtenv.db.sess.delete(i)
-                sessions.remove(i)
-
-        for i in sessions[:]:
-            if i.session_cookie == None or i.session_valid_till == None:
                 self.rtenv.db.sess.delete(i)
                 sessions.remove(i)
 
@@ -1005,7 +1033,8 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         priority,
         status,
         resolution,
-        description
+        description,
+        creation_date
         ):
 
         try:
@@ -1015,8 +1044,6 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         except sqlalchemy.orm.exc.NoResultFound:
             raise bottle.HTTPError(400, "Corresponding project not found")
 
-        date = datetime.datetime.now()
-
         issue = self.rtenv.models[self.module_name]['Issue']()
         issue.project_name = project_name
         issue.title = title
@@ -1024,7 +1051,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         issue.status = status
         issue.resolution = resolution
         issue.description = description
-        issue.creation_date = date
+        issue.creation_date = creation_date
         issue.updation_date = None
 
         self.rtenv.db.sess.add(issue)
@@ -1142,6 +1169,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
     def make_issue_update(
         self,
         issue_id,
+        author_jid,
         title_old,
         title,
         priority_old,
@@ -1160,6 +1188,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         issueup = self.rtenv.models[self.module_name]['IssueUpdate']()
 
         issueup.issue_id = issue_id
+        issueup.author_jid = author_jid
         issueup.title_old = title_old
         issueup.title = title
         issueup.priority_old = priority_old
@@ -1185,23 +1214,6 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             self.rtenv.models[self.module_name]['IssueUpdate']
             ).filter_by(issue_id=issue_id).all()
 
-    def get_user(self, jid):
-
-        ret = None
-
-        res = None
-
-        try:
-            res = self.rtenv.db.sess.query(
-                self.rtenv.models[self.module_name]['User']
-                ).filter_by(jid=jid).one()
-        except sqlalchemy.orm.exc.NoResultFound:
-            pass
-        else:
-            ret = res
-
-        return ret
-
     def get_site_role(self, jid):
 
         ret = None
@@ -1217,6 +1229,14 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         else:
             ret = res
 
+            if not ret.role in self.site_roles:
+
+                self.rtenv.db.sess.delete(ret)
+
+                ret = None
+
+                self.rtenv.db.sess.commit()
+
         return ret
 
     def get_site_roles(self):
@@ -1224,6 +1244,17 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         ret = self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['SiteRole']
             ).all()
+
+        for i in ret[:]:
+            if not i.role in self.site_roles:
+
+                self.rtenv.db.sess.delete(i)
+
+                while i in ret:
+                    ret.remove(i)
+
+        self.rtenv.db.sess.commit()
+
 
         return ret
 
@@ -1325,6 +1356,16 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         ret = self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['ProjectRole']
             ).filter_by(project_name=project_name).all()
+
+        for i in ret[:]:
+            if not i.role in self.project_roles:
+
+                self.rtenv.db.sess.delete(i)
+
+                while i in ret:
+                    ret.remove(i)
+
+        self.rtenv.db.sess.commit()
 
         return ret
 

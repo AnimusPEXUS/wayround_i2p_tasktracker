@@ -1,6 +1,5 @@
 body {
     background: silver;
-    /* font-size: 12px; */
     font-family: Arial;
 }
 
@@ -72,12 +71,115 @@ pre.console_shot {
 
 #issue_teaser_table {
     width: 100%;
-    border-collapse: collapse;
+    border: 1px transparent solid;
+    font-size: 12px;
+    text-align: center;
 }
 
-#issue_teaser_table>tbody>tr {
+#issue_teaser_table>tbody>tr>td {
     background: white;
-    border-radius: 3px;
+}
+
+#issue_teaser_table>tbody>tr>td>a {
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 2px 0px 2px 0px;
+    text-decoration: none;
+}
+
+#issue_teaser_table>tbody>tr>td.right_issue_teaser_table_td {
+    border-radius: 0px 5px 5px 0px;
+}
+
+#issue_teaser_table>tbody>tr>td.left_issue_teaser_table_td {
+    border-radius: 5px 0px 0px 5px;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio1>td {
+    background: maroon;
+    color: white;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio1>td {
+    background: darkred;
+    color: white;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio1>td>a {
+    color: white;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio2>td {
+    background: firebrick;
+    color: white;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio2>td>a {
+    color: white;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio3>td {
+    background: crimson;
+    color: white;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio3>td>a {
+    color: white;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio4>td {
+    background: SandyBrown;
+    color: white;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio4>td>a {
+    color: white;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio5>td {
+    background: SpringGreen;
+    color: black;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio5>td>a {
+    color: black;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio6>td {
+    background: Aquamarine;
+    color: black;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio6>td>a {
+    color: black;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio7>td {
+    background: MediumTurquoise;
+    color: white;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio7>td>a {
+    color: white;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio8>td {
+    background: CadetBlue;
+    color: white;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio8>td>a {
+    color: white;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio9>td {
+    background: SteelBlue;
+    color: white;
+}
+
+#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio9>td>a {
+    color: white;
 }
 
 /* ROLES TABLES */
@@ -130,21 +232,34 @@ pre.console_shot {
 
 #issue_page_updates_table {
     width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
 }
 
 #issue_page_updates_table>tbody>tr>td {
-    /* border: 1px solid black; */
-    
-}
-
-#issue_page_updates_table_level2 {
-    width: 100%;
-    background: white;
-    border-radius: 3px;
+    border: 1px solid black;
     padding: 5px;
 }
 
-#issue_page_updates_table_level2>tbody>tr>td {
-    /*     border: 1px solid black; */
+#issue_page_updates_table>tbody>tr>td.issue_page_table_credentials_column
+    {
     
+}
+
+#issue_page_updates_table>tbody>tr>td.issue_page_table_details_column {
+    width: 100%;
+}
+
+.issue_page_updates_table_level2 {
+    width: 100%;
+}
+
+.issue_page_table_details_column_old {
+    background: black;
+    color: white;
+}
+
+.issue_page_table_details_column_new {
+    background: green;
+    color: white;
 }
