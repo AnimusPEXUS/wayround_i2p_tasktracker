@@ -101,6 +101,11 @@ class Environment:
             )
 
         self.app.route(
+            '/project/<project_name>/activities', 'GET', self.project_activities
+            )
+
+
+        self.app.route(
             '/project/<project_name>/settings', 'GET', self.edit_project
             )
         self.app.route(
@@ -162,6 +167,15 @@ class Environment:
                 PageAction(
                     'Issue List',
                     '/project/{}'.format(urllib.parse.quote(project_name))
+                    )
+                )
+
+            lst.append(
+                PageAction(
+                    'Activities',
+                    '/project/{}/activities'.format(
+                        urllib.parse.quote(project_name)
+                        )
                     )
                 )
 
@@ -868,6 +882,9 @@ class Environment:
 
         return
 
+
+
+
     def login_access_check(self, jid):
 
         ret = True
@@ -952,21 +969,10 @@ class Environment:
                 rts_object=rts
                 )
 
-            issues = self.rtenv.modules[self.ttm].get_project_issues(project_name)
 
-            opened = []
-            closed = []
-            deleted = []
-
-            for i in issues:
-                if i.status == 'open':
-                    opened.append(i)
-
-                if i.status == 'closed':
-                    closed.append(i)
-
-                if i.status == 'deleted':
-                    deleted.append(i)
+            opened = self.rtenv.modules[self.ttm].get_project_issues(project_name, 'open', 0, 100)
+            closed = self.rtenv.modules[self.ttm].get_project_issues(project_name, 'closed', 0, 100)
+            deleted = self.rtenv.modules[self.ttm].get_project_issues(project_name, 'deleted', 0, 100)
 
 
             open_table = self.rtenv.modules[self.ttm].issue_teaser_table_tpl(opened)
@@ -993,6 +999,58 @@ class Environment:
                 )
 
         return ret
+
+
+    def project_activities(self, project_name):
+        ret = ''
+
+        rts = self.generate_rts_object()
+
+        p = self.rtenv.modules[self.ttm].get_project(project_name)
+
+        self.project_view_access_check(rts, p)
+
+        decoded_params = bottle.request.params.decode('utf-8')
+
+        if not 'page' in decoded_params:
+            decoded_params['page'] = '0'
+
+        if not 'count' in decoded_params:
+            decoded_params['count'] = '100'
+
+        try:
+            page = int(decoded_params['page'])
+            count = int(decoded_params['count'])
+        except:
+            raise bottle.HTTPError(400, body="invalid numbers")
+
+        if not p:
+            raise bottle.HTTPError(404, body="Project not found")
+
+        else:
+
+            actions = self.get_page_actions(
+                mode='project_activities',
+                project_name=project_name,
+                rts_object=rts
+                )
+
+            project_updates = self.rtenv.modules[self.ttm].get_project_updates(
+                project_name, page * count, ((page * count) + count)
+                )
+
+            activities_table = self.rtenv.modules[self.ttm].project_activity_table_tpl(
+                activities=project_updates, page=page, count=count
+                )
+
+            ret = self.rtenv.modules[self.ttm].html_tpl(
+                title="`{}' activities".format(p.title),
+                actions=actions,
+                body=activities_table
+                )
+
+        return ret
+
 
     def new_issue_access_check(self, rts, project_record):
 
@@ -1088,6 +1146,7 @@ class Environment:
 
         self.make_issue_update(
             rts,
+            issue.project_name,
             issue.issue_id,
             author_jid=rts.jid,
             title_old='',
@@ -1203,6 +1262,7 @@ class Environment:
     def make_issue_update(
         self,
         rts,
+        project_name,
         issue_id,
         author_jid,
         title_old,
@@ -1265,6 +1325,7 @@ class Environment:
                 ))
 
         self.rtenv.modules[self.ttm].make_issue_update(
+            project_name=project_name,
             issue_id=issue_id,
             author_jid=author_jid,
             title_old=title_old,
@@ -1339,7 +1400,8 @@ class Environment:
 
                 self.make_issue_update(
                     rts,
-                    issue_id,
+                    issue.project_name,
+                    issue.issue_id,
                     author_jid=rts.jid,
                     title_old=issue.title,
                     title=decoded_params['title'],

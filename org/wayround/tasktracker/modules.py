@@ -197,6 +197,12 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
                 autoincrement=True
                 )
 
+            project_name = sqlalchemy.Column(
+                sqlalchemy.UnicodeText,
+                nullable=False,
+                default=''
+                )
+
             issue_id = sqlalchemy.Column(
                 sqlalchemy.Integer,
                 nullable=False,
@@ -439,6 +445,9 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             'issue_update_table',
             'site_settings',
             'site_roles',
+            'project_activity_pager',
+            'project_activity_table',
+            'project_activity_row',
             ]:
             self.rtenv.templates[self.module_name][i] = Template(
                 filename=os.path.join(self.template_dir, '{}.html'.format(i)),
@@ -448,6 +457,103 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
     def html_tpl(self, title, actions, body, session=''):
         return self.rtenv.templates[self.module_name]['html'].render(
             title=title, session=session, actions=actions, body=body, js=[], css=['default.css']
+            )
+
+    def project_activity_pager_tpl(
+        self,
+        page=0,
+        count=100
+        ):
+
+        if not isinstance(page, int):
+            raise TypeError("`page' must be int")
+
+        if not isinstance(count, int):
+            raise TypeError("`count' must be int")
+
+        return self.rtenv.templates[self.module_name]['project_activity_pager'].render(
+            page=page,
+            count=count
+            )
+
+    def project_activity_table_tpl(
+        self, activities, page, count
+        ):
+
+        rows = []
+
+        pager = self.project_activity_pager_tpl(page, count)
+
+        for i in activities:
+
+            issue = self.get_issue(i.issue_id)
+
+            rows.append(
+                self.project_activity_row_tpl(
+                    project_name=i.project_name,
+                    issue_id=i.issue_id,
+                    issue_title=issue.title,
+                    title_old=i.title_old,
+                    title=i.title,
+                    priority_old=i.priority_old,
+                    priority=i.priority,
+                    status_old=i.status_old,
+                    status=i.status,
+                    resolution_old=i.resolution_old,
+                    resolution=i.resolution,
+                    description_diff=i.description_diff,
+                    assigned_to_diff=i.assigned_to_diff,
+                    watchers_diff=i.watchers_diff,
+                    comment=i.comment,
+                    date=i.date,
+                    author_jid=i.author_jid
+                    )
+                )
+
+        return self.rtenv.templates[self.module_name]['project_activity_table'].render(
+            rows=rows,
+            pager=pager
+            )
+
+    def project_activity_row_tpl(
+            self,
+            project_name='',
+            issue_id='',
+            issue_title='',
+            title_old='',
+            title='',
+            priority_old='',
+            priority='',
+            status_old='',
+            status='',
+            resolution_old='',
+            resolution='',
+            description_diff='',
+            assigned_to_diff='',
+            watchers_diff='',
+            comment='',
+            date='',
+            author_jid=''
+            ):
+
+        return self.rtenv.templates[self.module_name]['project_activity_row'].render(
+            project_name=project_name,
+            issue_id=issue_id,
+            issue_title=issue_title,
+            title_old=title_old,
+            title=title,
+            priority_old=priority_old,
+            priority=priority,
+            status_old=status_old,
+            status=status,
+            resolution_old=resolution_old,
+            resolution=resolution,
+            description_diff=description_diff,
+            assigned_to_diff=assigned_to_diff,
+            watchers_diff=watchers_diff,
+            comment=comment,
+            date=date,
+            jid=author_jid
             )
 
     def site_roles_tpl(
@@ -948,7 +1054,16 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         return p
 
-    def get_project_issues(self, name):
+    def get_project_issues_count(self, name, status):
+
+        return self.rtenv.db.sess.query(
+            self.rtenv.models[self.module_name]['Issue']
+            ).filter_by(
+                project_name=name,
+                status=status
+                ).count()
+
+    def get_project_issues(self, name, status, start, stop):
 
         i = None
 
@@ -961,7 +1076,13 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         else:
             i = self.rtenv.db.sess.query(
                 self.rtenv.models[self.module_name]['Issue']
-                ).filter_by(project_name=name).all()
+                ).filter_by(
+                    project_name=name,
+                    status=status
+                    ).order_by(
+                        self.rtenv.models[self.module_name]['Issue'].priority.asc(),
+                        self.rtenv.models[self.module_name]['Issue'].updation_date.desc()
+                        ).slice(start, stop).all()
 
         return i
 
@@ -1052,7 +1173,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         issue.resolution = resolution
         issue.description = description
         issue.creation_date = creation_date
-        issue.updation_date = None
+        issue.updation_date = creation_date
 
         self.rtenv.db.sess.add(issue)
 
@@ -1168,6 +1289,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
     def make_issue_update(
         self,
+        project_name,
         issue_id,
         author_jid,
         title_old,
@@ -1187,6 +1309,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         issueup = self.rtenv.models[self.module_name]['IssueUpdate']()
 
+        issueup.project_name = project_name
         issueup.issue_id = issue_id
         issueup.author_jid = author_jid
         issueup.title_old = title_old
@@ -1213,6 +1336,24 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         return self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['IssueUpdate']
             ).filter_by(issue_id=issue_id).all()
+
+    def get_project_updates_count(self, project_name):
+
+        return self.rtenv.db.sess.query(
+            self.rtenv.models[self.module_name]['IssueUpdate']
+            ).filter_by(
+                project_name=project_name
+                ).count()
+
+    def get_project_updates(self, project_name, start=0, stop=100):
+
+        return self.rtenv.db.sess.query(
+            self.rtenv.models[self.module_name]['IssueUpdate']
+            ).filter_by(
+                project_name=project_name
+                ).order_by(
+                    self.rtenv.models[self.module_name]['IssueUpdate'].date.desc()
+                    ).slice(start, stop).all()
 
     def get_site_role(self, jid):
 

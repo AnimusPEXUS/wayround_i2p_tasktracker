@@ -243,7 +243,7 @@ pre.console_shot {
 
 #issue_page_updates_table>tbody>tr>td.issue_page_table_credentials_column
     {
-    
+    vertical-align: top;
 }
 
 #issue_page_updates_table>tbody>tr>td.issue_page_table_details_column {
@@ -262,4 +262,44 @@ pre.console_shot {
 .issue_page_table_details_column_new {
     background: green;
     color: white;
+}
+
+/* ACTIVITIES PAGE */
+#project_activity_table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+#project_activity_table>tbody>tr>td {
+    border: 1px solid black;
+    padding: 5px;
+}
+
+#project_activity_table>tbody>tr>td.project_activity_page_table_credentials_column
+    {
+    vertical-align: top;
+}
+
+#project_activity_table>tbody>tr>td.project_activity_page_table_details_column
+    {
+    width: 100%;
+}
+
+.project_activity_page_updates_table_level2 {
+    width: 100%;
+}
+
+.project_activity_page_table_details_column_old {
+    background: black;
+    color: white;
+    padding: 3px;
+    border-radius: 3px 3px 3px 3px;
+}
+
+.project_activity_page_table_details_column_new {
+    background: green;
+    color: white;
+    padding: 3px;
+    border-radius: 3px 3px 3px 3px;
 }

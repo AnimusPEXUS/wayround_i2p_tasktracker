@@ -1,0 +1,111 @@
+<%
+
+show_title_change = False
+show_status_change = False
+show_priority_change = False
+show_resolution_change = False
+show_assigned_to = False
+show_watchers = False
+show_description = False
+
+if title_old != title:
+    show_title_change = True
+
+if status_old != status:
+    show_status_change = True
+
+if priority_old != priority:
+    show_priority_change = True
+    
+if resolution_old != resolution:
+    show_resolution_change = True
+
+if assigned_to_diff != 'None':
+    show_assigned_to = True
+
+if watchers_diff != 'None':
+    show_watchers = True
+
+if description_diff != 'None':
+    show_description = True
+    
+%><tr>
+    <td class="project_activity_page_table_credentials_column">
+        <div>${ date | x }</div>
+        <div>${ jid | x }</div>
+    </td>
+    <td class="project_activity_page_table_details_column">
+        <table class="project_activity_page_updates_table_level2">
+            <tr>
+                <td>
+                    <div>
+                        <a href="/project/${ project_name | u,x }/${ str(issue_id) | u,x }">${ '#' + str(issue_id) + ': ' + issue_title | x }</a>
+                    </div>
+                    <div>
+                    % if show_title_change:
+                    <div class="inline">
+                        <strong>Title change:</strong>
+                        % if title_old != '':
+                        <span class="project_activity_page_table_details_column_old">${ title_old | x }</span>
+                        % endif
+                        <span class="project_activity_page_table_details_column_new">${ title | x }</span>
+                    </div>
+                    % endif 
+                    % if show_status_change:
+                    <div class="inline">
+                        <strong>Status change:</strong>
+                        % if status_old != '':
+                        <span class="project_activity_page_table_details_column_old">${ status_old | x }</span>
+                        % endif
+                        <span class="project_activity_page_table_details_column_new">${ status | x }</span>
+                    </div>
+                    % endif 
+                    % if show_priority_change:
+                    <div class="inline">
+                        <strong>Priority change:</strong>
+                        % if priority_old != '':
+                        <span class="project_activity_page_table_details_column_old">${ priority_old | x }</span>
+                        % endif
+                        <span class="project_activity_page_table_details_column_new">${ priority | x }</span>
+                    </div>
+                    % endif 
+                    % if show_resolution_change:
+                    <div class="inline">
+                        <strong>Resolution change:</strong>
+                        % if resolution_old != '':
+                        <span class="project_activity_page_table_details_column_old">${ resolution_old | x }</span>
+                        % endif
+                        <span class="project_activity_page_table_details_column_new">${ resolution | x }</span>
+                    </div>
+                    % endif
+                    % if show_assigned_to:
+                    <div class="inline">
+                        <strong>Assignment:</strong>
+                        <div class="inline"><pre class="console_shot">${ assigned_to_diff }</pre></div>
+                    </div>
+                    % endif
+                    % if show_watchers:
+                    <div class="inline">
+                        <strong>Watchers:</strong>
+                        <div class="inline"><pre class="console_shot">${ watchers_diff }</pre></div>
+                    </div>
+                    % endif
+                    </div>
+                    <div>
+                    % if show_description:
+                    <div class="inline">
+                        <span>Description changed</span>
+                    </div>
+                    % endif
+                    </div>
+                </td>
+            </tr>
+            % if len(comment) > 0:
+            <tr>
+                <td><strong>Comment:</strong>
+                    <div>${comment|x}</div></td>
+            </tr>
+            % endif
+        </table>
+    </td>
+</tr>
