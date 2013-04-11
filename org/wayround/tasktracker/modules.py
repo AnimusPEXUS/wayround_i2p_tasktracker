@@ -448,6 +448,8 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             'project_activity_pager',
             'project_activity_table',
             'project_activity_row',
+            'project_issues_pager',
+            'project_issues_page',
             ]:
             self.rtenv.templates[self.module_name][i] = Template(
                 filename=os.path.join(self.template_dir, '{}.html'.format(i)),
@@ -457,6 +459,46 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
     def html_tpl(self, title, actions, body, session=''):
         return self.rtenv.templates[self.module_name]['html'].render(
             title=title, session=session, actions=actions, body=body, js=[], css=['default.css']
+            )
+
+    def project_issues_page_tpl(
+        self,
+        issue_records,
+        status,
+        page,
+        count
+        ):
+
+        pager = self.project_issues_pager_tpl(
+            page, count, status
+            )
+
+        teaser_table = self.issue_teaser_table_tpl(issue_records)
+
+        return self.rtenv.templates[self.module_name]['project_issues_page'].render(
+            pager=pager,
+            teaser_table=teaser_table
+            )
+
+    def project_issues_pager_tpl(
+        self,
+        page=0,
+        count=100,
+        status='open'
+        ):
+
+        if not isinstance(page, int):
+            raise TypeError("`page' must be int")
+
+        if not isinstance(count, int):
+            raise TypeError("`count' must be int")
+
+        status_selector = self.issue_status_selector_tpl(status)
+
+        return self.rtenv.templates[self.module_name]['project_issues_pager'].render(
+            page=page,
+            count=count,
+            status_selector=status_selector
             )
 
     def project_activity_pager_tpl(
@@ -678,11 +720,13 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
     def project_page_tpl(
         self,
+        project_name,
         open_issue_table='',
         closed_issue_table='',
         deleted_issue_table=''
         ):
         return self.rtenv.templates[self.module_name]['project_page'].render(
+            project_name=project_name,
             open_issue_table=open_issue_table,
             closed_issue_table=closed_issue_table,
             deleted_issue_table=deleted_issue_table

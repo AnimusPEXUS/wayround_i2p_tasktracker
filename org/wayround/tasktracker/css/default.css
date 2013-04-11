@@ -35,7 +35,7 @@ pre.console_shot {
     background: black;
     display: inline-block;
     border-radius: 3px;
-    margin-right: 3px;
+    margin: 3px 3px 3px 0px;
     overflow: visible;
 }
 
@@ -55,7 +55,6 @@ pre.console_shot {
 
 #actions_session_td {
     text-align: right;
-    align: right;
 }
 
 /* PROJECT VIEW PAGE */
@@ -69,18 +68,18 @@ pre.console_shot {
     vertical-align: top;
 }
 
-#issue_teaser_table {
+.issue_teaser_table {
     width: 100%;
     border: 1px transparent solid;
     font-size: 12px;
     text-align: center;
 }
 
-#issue_teaser_table>tbody>tr>td {
+.issue_teaser_table>tbody>tr>td {
     background: white;
 }
 
-#issue_teaser_table>tbody>tr>td>a {
+.issue_teaser_table>tbody>tr>td>a {
     display: block;
     width: 100%;
     height: 100%;
@@ -88,97 +87,97 @@ pre.console_shot {
     text-decoration: none;
 }
 
-#issue_teaser_table>tbody>tr>td.right_issue_teaser_table_td {
+.issue_teaser_table>tbody>tr>td.right_issue_teaser_table_td {
     border-radius: 0px 5px 5px 0px;
 }
 
-#issue_teaser_table>tbody>tr>td.left_issue_teaser_table_td {
+.issue_teaser_table>tbody>tr>td.left_issue_teaser_table_td {
     border-radius: 5px 0px 0px 5px;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio1>td {
+.issue_teaser_table>tbody>tr.priority1>td {
     background: maroon;
     color: white;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio1>td {
+.issue_teaser_table>tbody>tr.priority1>td {
     background: darkred;
     color: white;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio1>td>a {
+.issue_teaser_table>tbody>tr.priority1>td>a {
     color: white;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio2>td {
+.issue_teaser_table>tbody>tr.priority2>td {
     background: firebrick;
     color: white;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio2>td>a {
+.issue_teaser_table>tbody>tr.priority2>td>a {
     color: white;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio3>td {
+.issue_teaser_table>tbody>tr.priority3>td {
     background: crimson;
     color: white;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio3>td>a {
+.issue_teaser_table>tbody>tr.priority3>td>a {
     color: white;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio4>td {
+.issue_teaser_table>tbody>tr.priority4>td {
     background: SandyBrown;
     color: white;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio4>td>a {
+.issue_teaser_table>tbody>tr.priority4>td>a {
     color: white;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio5>td {
+.issue_teaser_table>tbody>tr.priority5>td {
     background: SpringGreen;
     color: black;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio5>td>a {
+.issue_teaser_table>tbody>tr.priority5>td>a {
     color: black;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio6>td {
+.issue_teaser_table>tbody>tr.priority6>td {
     background: Aquamarine;
     color: black;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio6>td>a {
+.issue_teaser_table>tbody>tr.priority6>td>a {
     color: black;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio7>td {
+.issue_teaser_table>tbody>tr.priority7>td {
     background: MediumTurquoise;
     color: white;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio7>td>a {
+.issue_teaser_table>tbody>tr.priority7>td>a {
     color: white;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio8>td {
+.issue_teaser_table>tbody>tr.priority8>td {
     background: CadetBlue;
     color: white;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio8>td>a {
+.issue_teaser_table>tbody>tr.priority8>td>a {
     color: white;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio9>td {
+.issue_teaser_table>tbody>tr.priority9>td {
     background: SteelBlue;
     color: white;
 }
 
-#issue_teaser_table>tbody>tr.issue_teaser_table_td_prio9>td>a {
+.issue_teaser_table>tbody>tr.priority9>td>a {
     color: white;
 }
 

@@ -101,6 +101,10 @@ class Environment:
             )
 
         self.app.route(
+            '/project/<project_name>/issues', 'GET', self.project_issues
+            )
+
+        self.app.route(
             '/project/<project_name>/activities', 'GET', self.project_activities
             )
 
@@ -165,8 +169,17 @@ class Environment:
 
             lst.append(
                 PageAction(
-                    'Issue List',
+                    'Project',
                     '/project/{}'.format(urllib.parse.quote(project_name))
+                    )
+                )
+
+            lst.append(
+                PageAction(
+                    'All Issues',
+                    '/project/{}/issues'.format(
+                        urllib.parse.quote(project_name)
+                        )
                     )
                 )
 
@@ -970,9 +983,17 @@ class Environment:
                 )
 
 
-            opened = self.rtenv.modules[self.ttm].get_project_issues(project_name, 'open', 0, 100)
-            closed = self.rtenv.modules[self.ttm].get_project_issues(project_name, 'closed', 0, 100)
-            deleted = self.rtenv.modules[self.ttm].get_project_issues(project_name, 'deleted', 0, 100)
+            opened = self.rtenv.modules[self.ttm].get_project_issues(
+                project_name, 'open', 0, 100
+                )
+
+            closed = self.rtenv.modules[self.ttm].get_project_issues(
+                project_name, 'closed', 0, 100
+                )
+
+            deleted = self.rtenv.modules[self.ttm].get_project_issues(
+                project_name, 'deleted', 0, 100
+                )
 
 
             open_table = self.rtenv.modules[self.ttm].issue_teaser_table_tpl(opened)
@@ -987,6 +1008,7 @@ class Environment:
 
 
             project_page = self.rtenv.modules[self.ttm].project_page_tpl(
+                project_name=project_name,
                 open_issue_table=open_table,
                 closed_issue_table=closed_table,
                 deleted_issue_table=deleted_table
@@ -1000,6 +1022,68 @@ class Environment:
 
         return ret
 
+
+    def project_issues(self, project_name):
+        ret = ''
+
+        rts = self.generate_rts_object()
+
+        p = self.rtenv.modules[self.ttm].get_project(project_name)
+
+        self.project_view_access_check(rts, p)
+
+        decoded_params = bottle.request.params.decode('utf-8')
+
+        if not 'page' in decoded_params:
+            decoded_params['page'] = '0'
+
+        if not 'count' in decoded_params:
+            decoded_params['count'] = '100'
+
+        if not 'status' in decoded_params:
+            decoded_params['status'] = 'open'
+
+        if not decoded_params['status'] in self.rtenv.modules[self.ttm].statuses:
+            raise bottle.HTTPError(400, body="invalid status")
+
+        try:
+            page = int(decoded_params['page'])
+            count = int(decoded_params['count'])
+        except:
+            raise bottle.HTTPError(400, body="invalid numbers")
+
+        if not p:
+            raise bottle.HTTPError(404, body="Project not found")
+
+        else:
+
+            actions = self.get_page_actions(
+                mode='project_activities',
+                project_name=project_name,
+                rts_object=rts
+                )
+
+            issue_records = self.rtenv.modules[self.ttm].get_project_issues(
+                project_name,
+                decoded_params['status'],
+                page * count,
+                (page * count) + count
+                )
+
+            issue_page = self.rtenv.modules[self.ttm].project_issues_page_tpl(
+                issue_records=issue_records,
+                status=decoded_params['status'],
+                page=page,
+                count=count
+                )
+
+            ret = self.rtenv.modules[self.ttm].html_tpl(
+                title="`{}' {} issues".format(p.title, decoded_params['status']),
+                actions=actions,
+                body=issue_page
+                )
+
+        return ret
 
     def project_activities(self, project_name):
         ret = ''

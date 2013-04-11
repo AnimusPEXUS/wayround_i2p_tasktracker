@@ -1,9 +1,9 @@
 <div>
     <table id="project_page_issue_table">
         <tr>
-            <th>Open</th>
-            <th>Closed</th>
-            <th>Deleted</th>
+            <th><a href="${project_name|u,x}/issues">Open</a></th>
+            <th><a href="${project_name|u,x}/issues?status=closed">Closed</a></th>
+            <th><a href="${project_name|u,x}/issues?status=deleted">Deleted</a></th>
         </tr>
         <tr>
             <td>${open_issue_table}</td>
