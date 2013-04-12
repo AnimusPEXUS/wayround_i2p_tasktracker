@@ -198,213 +198,247 @@ class Bot:
 
     def _clean(self, init=False):
 
-        self._driven = False
         self.connection = False
+
+        self._driven = False
         self._stream_in = False
         self._stream_out = False
         self._features_recieved = threading.Event()
         self._stop_flag = False
 
-    def run(self, jid, connection_info, auth_info, exit_event=None):
+        self._stopping = False
+        self._starting = False
 
-        fdstw = org.wayround.utils.file.FDStatusWatcher(
-            on_status_changed=org.wayround.utils.file.print_status_change
-        )
+    def start(self, jid, connection_info, auth_info, exit_event=None):
 
-        self.jid = jid
+        if not self._stopping and not self._starting:
 
-        self.connection_info = connection_info
+            self._starting = True
 
-        self.auth_info = auth_info
-
-        self.sock = socket.create_connection(
-            (
-             self.connection_info.host,
-             self.connection_info.port
-             )
+            fdstw = org.wayround.utils.file.FDStatusWatcher(
+                on_status_changed=org.wayround.utils.file.print_status_change
             )
 
+            self.exit_event = exit_event
 
-        logging.debug("Starting socket watcher")
-        fdstw.set_fd(self.sock.fileno())
-        fdstw.start()
+            self.jid = jid
 
-        self.client = org.wayround.xmpp.client.XMPPC2SClient(
-            self.sock
-            )
+            self.connection_info = connection_info
 
-        self.reset_hubs()
+            self.auth_info = auth_info
 
-        self.client.start()
+            self.sock = socket.create_connection(
+                (
+                 self.connection_info.host,
+                 self.connection_info.port
+                 )
+                )
 
-        self.client.wait('working')
 
-        self.stanza_processor = org.wayround.xmpp.core.StanzaProcessor()
-        self.stanza_processor.connect_input_object_stream_hub(
-            self.client.input_stream_objects_hub
-            )
-        self.stanza_processor.connect_io_machine(self.client.io_machine)
+            logging.debug("Starting socket watcher")
+            fdstw.set_fd(self.sock.fileno())
+            fdstw.start()
 
-        self._driven = True
+            self.client = org.wayround.xmpp.client.XMPPC2SClient(
+                self.sock
+                )
 
-        while True:
+            self.reset_hubs()
 
-            if self._features_recieved.wait(200):
-                break
+            self.client.start()
+
+            self.client.wait('working')
+
+            self.stanza_processor = org.wayround.xmpp.core.StanzaProcessor()
+            self.stanza_processor.connect_input_object_stream_hub(
+                self.client.input_stream_objects_hub
+                )
+            self.stanza_processor.connect_io_machine(self.client.io_machine)
+
+            self._driven = True
+
+            while True:
+
+                if self._features_recieved.wait(200):
+                    break
+
+                if self._stop_flag:
+                    break
+
+            self._features_recieved.clear()
+
+            if not self._stop_flag:
+
+                res = org.wayround.xmpp.client.client_starttls(
+                    self.client,
+                    self.jid,
+                    self.connection_info,
+                    self._last_features
+                    )
+
+                if res != 'success':
+                    self._stop_flag = True
+                else:
+
+                    while True:
+
+                        if self._features_recieved.wait(200):
+                            break
+
+                        if self._stop_flag:
+                            break
+
+                    self._features_recieved.clear()
+
+                    if not self._stop_flag:
+
+                        local_auth = AuthLocalDriver(self)
+                        local_auth.start()
+
+                        res = org.wayround.xmpp.client.client_sasl_auth(
+                            self.client,
+                            local_auth.mech_select,
+                            local_auth.auth,
+                            local_auth.response,
+                            local_auth.challenge,
+                            local_auth.success,
+                            local_auth.failure,
+                            local_auth.text,
+                            self.jid,
+                            self.connection_info,
+                            self._last_features
+                            )
+
+                        if res != 'success':
+                            self._stop_flag = True
+                        else:
+
+                            while True:
+
+                                if self._features_recieved.wait(200):
+                                    break
+
+                                if self._stop_flag:
+                                    break
+
+                            self._features_recieved.clear()
+
+                            if not self._stop_flag:
+
+                                res = org.wayround.xmpp.client.client_resource_bind(
+                                    self.client,
+                                    self.jid,
+                                    self.connection_info,
+                                    self._last_features,
+                                    self.stanza_processor
+                                    )
+
+
+                                if res != 'success':
+                                    self._stop_flag = True
+                                else:
+
+                                    if not self._stop_flag:
+
+                                        res = org.wayround.xmpp.client.client_session_start(
+                                            self.client,
+                                            self.jid,
+                                            self.connection_info,
+                                            self._last_features,
+                                            self.stanza_processor
+                                            )
+
+
+                                        if res != 'success':
+                                            self._stop_flag = True
+                                        else:
+
+                                            self._driven = False
+
+                                            logging.debug("Connecting bot inbound stanza processor")
+
+                                            self.stanza_processor.stanza_hub.set_waiter(
+                                                'tasktracker_bot',
+                                                self._inbound_stanzas
+                                                )
+
+                                            self.stanza_processor.send(
+                                                org.wayround.xmpp.core.Stanza(
+                                                    kind='presence',
+                                                    jid_from=self.jid.full(),
+                                                    body='<show>online</show><status>online</status>'
+                                                    )
+                                                )
+
+                                            self.stanza_processor.send(
+                                                org.wayround.xmpp.core.Stanza(
+                                                    kind='message',
+                                                    typ='chat',
+                                                    jid_from=self.jid.full(),
+                                                    jid_to='animus@wayround.org',
+                                                    body='<body>TaskTracker bot is now online</body><subject>WOW!</subject>'
+                                                    )
+                                                )
+
+# TODO: move to self.stop()
+#                                            try:
+#                                                exit_event.wait()
+#                                            except KeyboardInterrupt:
+#                                                logging.info("Stroke. exiting")
+#                                            except:
+#                                                logging.exception("Error")
+#
+#            self._driven = False
+#
+#
+#            if self.sock:
+#                try:
+#                    self.sock.shutdown(socket.SHUT_RDWR)
+#                except:
+#                    print("Socket shutdown error. maybe it's closed already")
+#
+#                try:
+#                    self.sock.close()
+#                except:
+#                    print("Socket close error")
+#
+#            logging.debug(
+#                "Reached the end. socket is {} {}".format(
+#                    self.client.socket,
+#                    self.client.socket._closed
+#                    )
+#                )
+#
+#            print("Threads alive3:")
+#            for i in threading.enumerate():
+#                print("    {}".format(repr(i)))
+#
+#            fdstw.stop()
+
+            self._driven = False
+
+            self._starting = False
 
             if self._stop_flag:
-                break
-
-        self._features_recieved.clear()
-
-        if not self._stop_flag:
-
-            res = org.wayround.xmpp.client.client_starttls(
-                self.client,
-                self.jid,
-                self.connection_info,
-                self._last_features
-                )
-
-            if res != 'success':
-                pass
-            else:
-
-                while True:
-
-                    if self._features_recieved.wait(200):
-                        break
-
-                    if self._stop_flag:
-                        break
-
-                self._features_recieved.clear()
-
-                if not self._stop_flag:
-
-                    local_auth = AuthLocalDriver(self)
-                    local_auth.start()
-
-                    res = org.wayround.xmpp.client.client_sasl_auth(
-                        self.client,
-                        local_auth.mech_select,
-                        local_auth.auth,
-                        local_auth.response,
-                        local_auth.challenge,
-                        local_auth.success,
-                        local_auth.failure,
-                        local_auth.text,
-                        self.jid,
-                        self.connection_info,
-                        self._last_features
-                        )
-
-                    if res != 'success':
-                        pass
-                    else:
-
-                        while True:
-
-                            if self._features_recieved.wait(200):
-                                break
-
-                            if self._stop_flag:
-                                break
-
-                        self._features_recieved.clear()
-
-                        if not self._stop_flag:
-
-                            res = org.wayround.xmpp.client.client_resource_bind(
-                                self.client,
-                                self.jid,
-                                self.connection_info,
-                                self._last_features,
-                                self.stanza_processor
-                                )
-
-
-                            if res == 'success':
-
-                                if not self._stop_flag:
-
-                                    res = org.wayround.xmpp.client.client_session_start(
-                                        self.client,
-                                        self.jid,
-                                        self.connection_info,
-                                        self._last_features,
-                                        self.stanza_processor
-                                        )
-
-
-                                    if res == 'success':
-
-                                        self._driven = False
-
-                                        self.stanza_processor.send(
-                                            org.wayround.xmpp.core.Stanza(
-                                                kind='presence',
-                                                jid_from=self.jid.full(),
-                                                body='<show>online</show><status>online</status>'
-                                                )
-                                            )
-
-                                        self.stanza_processor.send(
-                                            org.wayround.xmpp.core.Stanza(
-                                                kind='message',
-                                                typ='chat',
-                                                jid_from=self.jid.full(),
-                                                jid_to='animus@wayround.org',
-                                                body='<body>TaskTracker bot is now online</body><subject>WOW!</subject>'
-                                                )
-                                            )
-
-                                        self.stanza_processor.stanza_hub.set_waiter(
-                                            'tasktracker_bot',
-                                            self._inbound_stanzas
-                                            )
-
-                                        try:
-                                            exit_event.wait()
-                                        except KeyboardInterrupt:
-                                            logging.info("Stroke. exiting")
-                                        except:
-                                            logging.exception("Error")
-
-        self._driven = False
-
-
-        if self.sock:
-            try:
-                self.sock.shutdown(socket.SHUT_RDWR)
-            except:
-                print("Socket shutdown error. maybe it's closed already")
-
-            try:
-                self.sock.close()
-            except:
-                print("Socket close error")
-
-        logging.debug(
-            "Reached the end. socket is {} {}".format(
-                self.client.socket,
-                self.client.socket._closed
-                )
-            )
-
-        print("Threads alive3:")
-        for i in threading.enumerate():
-            print("    {}".format(repr(i)))
-
-        fdstw.stop()
+                self.stop()
 
         return 0
 
     def stop(self):
 
-        self._stop_flag = True
+        if not self._stopping and not self._starting:
 
-        self.client.stop()
+            self._stopping = True
+
+            self._driven = False
+
+            self._stop_flag = True
+
+            self.client.stop()
+
+            self.exit_event.set()
+
+            self._stopping = False
 
 
     def reset_hubs(self):
@@ -783,8 +817,6 @@ login SESSION_COOKIE          make user with named SESSION_COOKIE logged in on
                 self.stanza_processor.send(ret_stanza)
 
     def _on_connection_event(self, event, sock):
-
-        self.socket = sock
 
         if not self._driven:
 

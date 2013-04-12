@@ -1,7 +1,10 @@
-#!python3.3
+#!/usr/bin/python3
 
 import os.path
 import org.wayround.tasktracker.starter
+
+#logging.basicConfig(level='DEBUG', format="%(levelname)s :: %(threadName)s :: %(message)s")
+
 
 wd = os.path.abspath(os.path.dirname(__file__))
 
@@ -22,7 +25,7 @@ auth_info = org.wayround.xmpp.core.Authentication(
     authid='tasktracker',
     authzid='',
     realm='wayround.org',
-    password='Axuql7nz214gangmtINfUS5Aa68='
+    password=''
     )
 
 

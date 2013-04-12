@@ -89,7 +89,7 @@ def main(
 
     threading.Thread(
         name="Bot Thread",
-        target=bot.run,
+        target=bot.start,
         args=(jid, xmpp_connection_info, xmpp_auth_info,),
         kwargs={'exit_event':exit_event}
         ).start()
