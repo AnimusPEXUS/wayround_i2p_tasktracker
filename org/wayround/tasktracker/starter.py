@@ -103,7 +103,12 @@ def main(
 
     exit_event.set()
 
+    logging.debug("starting bot stop")
     bot.stop()
+    logging.debug("starting site stop")
     env.stop()
+    logging.debug("all things stopped")
+
+    logging.debug("MainThread exiting")
 
     return ret

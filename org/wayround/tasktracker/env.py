@@ -11,6 +11,33 @@ from org.wayround.utils.list import list_strip_remove_empty_remove_duplicated_li
 
 import org.wayround.softengine.rtenv
 
+class WSGIRefServer(bottle.ServerAdapter):
+
+    def run(self, handler):
+
+        import wsgiref.simple_server
+
+        if self.quiet:
+
+            class QuietHandler(wsgiref.simple_server.WSGIRequestHandler):
+
+                def log_request(*args, **kw):
+                    pass
+
+            self.options['handler_class'] = QuietHandler
+
+        self.srv = wsgiref.simple_server.make_server(
+            self.host,
+            self.port,
+            handler,
+            **self.options
+            )
+
+        self.srv.serve_forever()
+
+        return
+
+
 def convert_cb_params_to_boolean(params, names):
 
     for i in names:
@@ -143,9 +170,17 @@ class Environment:
 
         self._bot = bot
 
-    def stop(self):
+    def start(self):
+        self.server = WSGIRefServer(host=self.host, port=self.port)
 
-        self.app.close()
+        return bottle.run(self.app, host=self.host, port=self.port, server=self.server)
+
+    def stop(self):
+        self.server.srv.shutdown()
+#        print("bottle.default_app = {}".format(bottle.default_app))
+#        bottle.default_app[0].close()
+#        self.app.close()
+
 
     def get_page_actions(
         self,
@@ -247,9 +282,6 @@ class Environment:
 
         return ret
 
-    def start(self):
-        return bottle.run(self.app, host=self.host, port=self.port)
-
 
     def generate_rts_object(self):
 
@@ -350,7 +382,10 @@ class Environment:
             )
 
         ret = self.rtenv.modules[self.ttm].html_tpl(
-            title="Test title",
+            title=self.rtenv.modules[self.ttm].get_site_setting(
+                'site_title',
+                'Not titled'
+                ),
             actions=actions,
             body=project_list
             )

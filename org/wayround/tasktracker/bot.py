@@ -215,10 +215,6 @@ class Bot:
 
             self._starting = True
 
-            fdstw = org.wayround.utils.file.FDStatusWatcher(
-                on_status_changed=org.wayround.utils.file.print_status_change
-            )
-
             self.exit_event = exit_event
 
             self.jid = jid
@@ -236,8 +232,6 @@ class Bot:
 
 
             logging.debug("Starting socket watcher")
-            fdstw.set_fd(self.sock.fileno())
-            fdstw.start()
 
             self.client = org.wayround.xmpp.client.XMPPC2SClient(
                 self.sock
@@ -409,11 +403,10 @@ class Bot:
 #                    )
 #                )
 #
-#            print("Threads alive3:")
+#            print("Threads alive:")
 #            for i in threading.enumerate():
 #                print("    {}".format(repr(i)))
 #
-#            fdstw.stop()
 
             self._driven = False
 
