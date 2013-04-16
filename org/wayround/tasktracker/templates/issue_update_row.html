@@ -40,28 +40,44 @@ if description_diff != 'None':
                         % if show_title_change:
                         <tr>
                             <td>Title:</td>
+                            % if title_old != '':
                             <td class="issue_page_table_details_column_old">${ title_old | x }</td>
+                            % else:
+                            <td></td>
+                            % endif
                             <td class="issue_page_table_details_column_new">${ title | x }</td>
                         </tr>
                         % endif 
                         % if show_status_change:
                         <tr>
                             <td>Status:</td>
+                            % if status_old != '':
                             <td class="issue_page_table_details_column_old">${ status_old | x }</td>
+                            % else:
+                            <td></td>
+                            % endif
                             <td class="issue_page_table_details_column_new">${ status | x }</td>
                         </tr>
                         % endif 
                         % if show_priority_change:
                         <tr>
                             <td>Priority:</td>
+                            % if priority_old != '':
                             <td class="issue_page_table_details_column_old">${ priority_old | x }</td>
+                            % else:
+                            <td></td>
+                            % endif
                             <td class="issue_page_table_details_column_new">${ priority | x }</td>
                         </tr>
                         % endif 
                         % if show_resolution_change:
                         <tr>
                             <td>Resolution:</td>
+                            % if resolution_old != '':
                             <td class="issue_page_table_details_column_old">${ resolution_old | x }</td>
+                            % else:
+                            <td></td>
+                            % endif
                             <td class="issue_page_table_details_column_new">${ resolution | x }</td>
                         </tr>
                         % endif

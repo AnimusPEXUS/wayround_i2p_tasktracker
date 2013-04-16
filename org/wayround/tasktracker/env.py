@@ -6,6 +6,11 @@ import difflib
 
 import bottle
 
+bottle.Request.MEMFILE_MAX = 10 * 1024 * 1024
+bottle.Request.MAX_PARAMS = 100
+bottle.request.MEMFILE_MAX = 10 * 1024 * 1024
+bottle.request.MAX_PARAMS = 100
+
 import org.wayround.utils.file
 from org.wayround.utils.list import list_strip_remove_empty_remove_duplicated_lines
 
@@ -1242,7 +1247,10 @@ class Environment:
             'submit_type'
             ]:
             if not i in bottle.request.params:
+                print("MEMFILE_MAX {}".format(bottle.request.MEMFILE_MAX))
                 raise KeyError("parameter `{}' must be passed".format(i))
+            else:
+                print("param {} == {}".format(i, bottle.request.params[i]))
 
         decoded_params = bottle.request.params.decode('utf-8')
 

@@ -17,9 +17,17 @@ pre.console_shot {
     color: #aaaaaa;
     padding: 10px;
     border-radius: 5px;
-    font-family: Fixed;
+    font-family: "Fixed";
     font-size: 12px;
-    width: 100%;
+}
+
+pre.issue_description {
+    background: black;
+    color: #aaaaaa;
+    padding: 10px;
+    border-radius: 5px;
+    font-family: "Fixed";
+    font-size: 12px;
 }
 
 /* PAGE ACTIONS */
@@ -256,11 +264,15 @@ pre.console_shot {
 .issue_page_table_details_column_old {
     background: black;
     color: white;
+    padding: 3px;
+    border-radius: 3px 3px 3px 3px;
 }
 
 .issue_page_table_details_column_new {
     background: green;
     color: white;
+    padding: 3px;
+    border-radius: 3px 3px 3px 3px;
 }
 
 /* ACTIVITIES PAGE */
