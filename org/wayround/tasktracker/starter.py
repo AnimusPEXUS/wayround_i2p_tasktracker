@@ -5,11 +5,13 @@ import logging
 import os.path
 import sys
 
+import org.wayround.xmpp.client_bot
+
 import org.wayround.softengine.modules
 
+import org.wayround.tasktracker.jabber_commands
 import org.wayround.tasktracker.modules
 import org.wayround.tasktracker.env
-import org.wayround.tasktracker.bot
 
 
 def main(
@@ -70,9 +72,11 @@ def main(
 
     rtenv.db.create_all()
 
-    bot = org.wayround.tasktracker.bot.Bot()
+    commands = org.wayround.tasktracker.jabber_commands.JabberCommands()
 
-    env = org.wayround.tasktracker.env.Environment(
+    bot = org.wayround.xmpp.client_bot.Bot()
+
+    site = org.wayround.tasktracker.env.Environment(
         rtenv,
         host=host,
         port=port,
@@ -81,17 +85,19 @@ def main(
 
     threading.Thread(
         name="Site Thread",
-        target=env.start
+        target=site.start
         ).start()
 
-    bot.set_site(env)
-    env.set_bot(bot)
+    commands.set_site(site)
+    
+    
+    bot.set_commands(commands.commands_dict())
+    site.set_bot(bot)
 
     threading.Thread(
         name="Bot Thread",
         target=bot.start,
         args=(jid, xmpp_connection_info, xmpp_auth_info,),
-        kwargs={'exit_event':exit_event}
         ).start()
 
     try:
@@ -106,7 +112,7 @@ def main(
     logging.debug("starting bot stop")
     bot.stop()
     logging.debug("starting site stop")
-    env.stop()
+    site.stop()
     logging.debug("all things stopped")
 
     logging.debug("MainThread exiting")
