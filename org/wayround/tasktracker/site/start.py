@@ -1,10 +1,16 @@
 #!/usr/bin/python3
 
 import os.path
-import org.wayround.tasktracker.starter
+import sys
 
-#logging.basicConfig(level='DEBUG', format="%(levelname)s :: %(threadName)s :: %(message)s")
+import org.wayround.utils.program
 
+import org.wayround.tasktracker.commands
+
+import org.wayround.xmpp.core
+
+
+org.wayround.utils.program.logging_setup('info')
 
 wd = os.path.abspath(os.path.dirname(__file__))
 
@@ -28,16 +34,20 @@ auth_info = org.wayround.xmpp.core.Authentication(
     password=''
     )
 
+adds = {}
+adds['jid'] = jid
+adds['xmpp_connection_info'] = connection_info
+adds['xmpp_auth_info'] = auth_info
+adds['db_config'] = 'sqlite:///{}/db/database.sqlite'.format(wd)
+adds['db_echo'] = False
+adds['host'] = 'localhost'
+adds['port'] = 8080
+adds['main_admin'] = 'animus@wayround.org'
 
-exit(
-    org.wayround.tasktracker.starter.main(
-        db_config='sqlite:///{}/db/database.sqlite'.format(wd),
-        db_echo=False,
-        host='localhost',
-        port=8080,
-        main_admin='animus@wayround.org',
-        jid=jid,
-        xmpp_connection_info=connection_info,
-        xmpp_auth_info=auth_info
-        )
-     )
+commands = org.wayround.tasktracker.commands.commands()
+
+command_name = os.path.basename(sys.argv[0])
+
+ret = org.wayround.utils.program.program(command_name, commands, adds)
+
+exit(ret)

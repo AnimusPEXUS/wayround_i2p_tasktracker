@@ -1,59 +1,35 @@
 
-import threading
-import getopt
 import logging
-import os.path
-import sys
+import threading
 
+import org.wayround.softengine.rtenv
+import org.wayround.tasktracker.modules
+import org.wayround.tasktracker.jabber_commands
 import org.wayround.xmpp.client_bot
 
-import org.wayround.softengine.modules
+def commands():
+    return dict(
+        site=dict(
+            start=site_start
+            ),
+        help=dict(
+            )
+        )
 
-import org.wayround.tasktracker.jabber_commands
-import org.wayround.tasktracker.modules
-import org.wayround.tasktracker.env
 
-
-def main(
-    db_config,
-    db_echo,
-    host,
-    port,
-    jid=None,
-    main_admin=None,
-    xmpp_connection_info=None,
-    xmpp_auth_info=None
-    ):
-
-    for i in [
-        (logging.CRITICAL, '-c-'),
-        (logging.ERROR   , '-e-'),
-        (logging.WARN    , '-w-'),
-        (logging.WARNING , '-w-'),
-        (logging.INFO    , '-i-'),
-        (logging.DEBUG   , '-d-')
-        ]:
-        logging.addLevelName(i[0], i[1])
-    del i
+def site_start(comm, opts, args, adds):
 
     ret = 0
 
-    opts, args = getopt.gnu_getopt(
-        sys.argv, '', longopts=['help', 'version', 'verbose']
-        )
+    db_config = adds['db_config']
+    db_echo = adds['db_echo']
+    host = adds['host']
+    port = adds['port']
+    main_admin = adds['main_admin']
 
-    opts_d = dict(opts)
-
-    log_level = 'warning'
-    if '--verbose' in opts_d:
-        log_level = 'info'
-
-    log_level = log_level.upper()
-
-    logging.basicConfig(
-        format="%(levelname)s %(message)s",
-        level=log_level
-        )
+    jid = adds['jid']
+    xmpp_connection_info = adds['xmpp_connection_info']
+    xmpp_auth_info = adds['xmpp_auth_info']
 
     db = org.wayround.softengine.rtenv.DB(
         db_config,
@@ -89,8 +65,8 @@ def main(
         ).start()
 
     commands.set_site(site)
-    
-    
+
+
     bot.set_commands(commands.commands_dict())
     site.set_bot(bot)
 
@@ -116,5 +92,6 @@ def main(
     logging.debug("all things stopped")
 
     logging.debug("MainThread exiting")
+
 
     return ret
