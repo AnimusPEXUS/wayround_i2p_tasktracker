@@ -7,6 +7,7 @@ import org.wayround.tasktracker.modules
 import org.wayround.tasktracker.jabber_commands
 import org.wayround.xmpp.client_bot
 
+
 def commands():
     return dict(
         site=dict(
@@ -35,7 +36,7 @@ def site_start(comm, opts, args, adds):
         db_config,
         echo=db_echo,
         # FIXME: this is unsafe?
-        connect_args={'check_same_thread':False}
+        connect_args={'check_same_thread': False}
         )
 
     rtenv = org.wayround.softengine.rtenv.RuntimeEnvironment(db)
@@ -66,7 +67,6 @@ def site_start(comm, opts, args, adds):
 
     commands.set_site(site)
 
-
     bot.set_commands(commands.commands_dict())
     site.set_bot(bot)
 
@@ -92,6 +92,5 @@ def site_start(comm, opts, args, adds):
     logging.debug("all things stopped")
 
     logging.debug("MainThread exiting")
-
 
     return ret

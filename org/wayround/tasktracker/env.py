@@ -12,9 +12,12 @@ bottle.request.MEMFILE_MAX = 10 * 1024 * 1024
 bottle.request.MAX_PARAMS = 100
 
 import org.wayround.utils.file
-from org.wayround.utils.list import list_strip_remove_empty_remove_duplicated_lines
+from org.wayround.utils.list import (
+    list_strip_remove_empty_remove_duplicated_lines
+    )
 
 import org.wayround.softengine.rtenv
+
 
 class WSGIRefServer(bottle.ServerAdapter):
 
@@ -26,7 +29,7 @@ class WSGIRefServer(bottle.ServerAdapter):
 
             class QuietHandler(wsgiref.simple_server.WSGIRequestHandler):
 
-                def log_request(*args, **kw):
+                def log_request(self, *args, **kw):
                     pass
 
             self.options['handler_class'] = QuietHandler
@@ -54,6 +57,7 @@ def convert_cb_params_to_boolean(params, names):
         else:
             params[i] = False
 
+
 class Session:
 
     def __init__(self):
@@ -64,12 +68,14 @@ class Session:
         self.project_roles = {}
         self.session_valid_till = None
 
+
 class PageAction:
 
     def __init__(self, title, href):
 
         self.title = title
         self.href = href
+
 
 class PageSpan:
 
@@ -78,14 +84,15 @@ class PageSpan:
         self.text = text
         self.cl = cl
 
+
 class PageHtml:
 
     def __init__(self, markup):
 
         self.markup = markup
 
-class Environment:
 
+class Environment:
 
     def __init__(
         self,
@@ -112,9 +119,12 @@ class Environment:
 
         self.app.route('/', 'GET', self.index)
 
-        self.app.route('/js/<filename>', 'GET', self.rtenv.modules[self.ttm].js)
-        self.app.route('/css/<filename>', 'GET', self.rtenv.modules[self.ttm].css)
-
+        self.app.route(
+            '/js/<filename>', 'GET', self.rtenv.modules[self.ttm].js
+            )
+        self.app.route(
+            '/css/<filename>', 'GET', self.rtenv.modules[self.ttm].css
+            )
 
         self.app.route('/settings', 'GET', self.site_settings)
         self.app.route('/settings', 'POST', self.site_settings_post)
@@ -137,9 +147,9 @@ class Environment:
             )
 
         self.app.route(
-            '/project/<project_name>/activities', 'GET', self.project_activities
+            '/project/<project_name>/activities', 'GET',
+            self.project_activities
             )
-
 
         self.app.route(
             '/project/<project_name>/settings', 'GET', self.edit_project
@@ -162,7 +172,6 @@ class Environment:
             '/project/<project_name>/new_issue', 'POST', self.new_issue_post
             )
 
-
         self.app.route(
             '/project/<project_name>/<issue_id:int>', 'GET', self.view_issue
             )
@@ -178,14 +187,18 @@ class Environment:
     def start(self):
         self.server = WSGIRefServer(host=self.host, port=self.port)
 
-        return bottle.run(self.app, host=self.host, port=self.port, server=self.server)
+        return bottle.run(
+            self.app,
+            host=self.host,
+            port=self.port,
+            server=self.server
+            )
 
     def stop(self):
         self.server.srv.shutdown()
 #        print("bottle.default_app = {}".format(bottle.default_app))
 #        bottle.default_app[0].close()
 #        self.app.close()
-
 
     def get_page_actions(
         self,
@@ -286,7 +299,6 @@ class Environment:
             )
 
         return ret
-
 
     def generate_rts_object(self):
 
@@ -430,11 +442,11 @@ class Environment:
             False
             ) == '1'
 
-        user_can_create_projects = self.rtenv.modules[self.ttm].get_site_setting(
-            'user_can_create_projects',
-            False
-            ) == '1'
-
+        user_can_create_projects = \
+            self.rtenv.modules[self.ttm].get_site_setting(
+                'user_can_create_projects',
+                False
+                ) == '1'
 
         settings_page = self.rtenv.modules[self.ttm].site_settings_tpl(
             site_title,
@@ -617,10 +629,12 @@ class Environment:
 
     def new_project_access_chec(self, rts):
 
-        if rts.site_role != 'admin' and self.rtenv.modules[self.ttm].get_site_setting(
-            'user_can_create_projects',
-            False
-            ) != '1':
+        if (rts.site_role != 'admin' and
+            self.rtenv.modules[self.ttm].get_site_setting(
+                'user_can_create_projects',
+                False
+                ) != '1'
+            ):
             raise bottle.HTTPError(403, "Not Allowed")
 
         return
@@ -635,7 +649,6 @@ class Environment:
             mode='edit_project',
             rts_object=rts
             )
-
 
         edit_project_tpl = self.rtenv.modules[self.ttm].edit_project_tpl(
             mode='new'
@@ -684,7 +697,9 @@ class Environment:
             )
 
         bottle.response.status = 303
-        bottle.response.set_header('Location', '/project/{}'.format(urllib.parse.quote(name)))
+        bottle.response.set_header(
+            'Location', '/project/{}'.format(urllib.parse.quote(name))
+            )
 
         return ret
 
@@ -826,7 +841,9 @@ class Environment:
         site_users.sort()
         site_blocked.sort()
 
-        roles = self.rtenv.modules[self.ttm].get_project_roles_dict(project_name)
+        roles = self.rtenv.modules[self.ttm].get_project_roles_dict(
+            project_name
+            )
 
         admins = []
         moders = []
@@ -871,7 +888,6 @@ class Environment:
             )
 
         return ret
-
 
     def project_roles_post(self, project_name):
 
@@ -935,9 +951,6 @@ class Environment:
 
         return
 
-
-
-
     def login_access_check(self, jid):
 
         ret = True
@@ -948,8 +961,6 @@ class Environment:
             ret = False
 
         return ret
-
-
 
     def register_access_check(self, jid):
 
@@ -1022,7 +1033,6 @@ class Environment:
                 rts_object=rts
                 )
 
-
             opened = self.rtenv.modules[self.ttm].get_project_issues(
                 project_name, 'open', 0, 100
                 )
@@ -1035,17 +1045,17 @@ class Environment:
                 project_name, 'deleted', 0, 100
                 )
 
-
-            open_table = self.rtenv.modules[self.ttm].issue_teaser_table_tpl(opened)
+            open_table = self.rtenv.modules[self.ttm].\
+                issue_teaser_table_tpl(opened)
 
             closed_table = self.rtenv.modules[self.ttm].issue_teaser_table_tpl(
                 closed
                 )
 
-            deleted_table = self.rtenv.modules[self.ttm].issue_teaser_table_tpl(
-                deleted
-                )
-
+            deleted_table = self.rtenv.modules[self.ttm].\
+                issue_teaser_table_tpl(
+                    deleted
+                    )
 
             project_page = self.rtenv.modules[self.ttm].project_page_tpl(
                 project_name=project_name,
@@ -1061,7 +1071,6 @@ class Environment:
                 )
 
         return ret
-
 
     def project_issues(self, project_name):
         ret = ''
@@ -1083,7 +1092,8 @@ class Environment:
         if not 'status' in decoded_params:
             decoded_params['status'] = 'open'
 
-        if not decoded_params['status'] in self.rtenv.modules[self.ttm].statuses:
+        if (not decoded_params['status']
+            in self.rtenv.modules[self.ttm].statuses):
             raise bottle.HTTPError(400, body="invalid status")
 
         try:
@@ -1118,7 +1128,10 @@ class Environment:
                 )
 
             ret = self.rtenv.modules[self.ttm].html_tpl(
-                title="`{}' {} issues".format(p.title, decoded_params['status']),
+                title="`{}' {} issues".format(
+                    p.title,
+                    decoded_params['status']
+                    ),
                 actions=actions,
                 body=issue_page
                 )
@@ -1163,9 +1176,10 @@ class Environment:
                 project_name, page * count, ((page * count) + count)
                 )
 
-            activities_table = self.rtenv.modules[self.ttm].project_activity_table_tpl(
-                activities=project_updates, page=page, count=count
-                )
+            activities_table = self.rtenv.modules[self.ttm].\
+                project_activity_table_tpl(
+                    activities=project_updates, page=page, count=count
+                    )
 
             ret = self.rtenv.modules[self.ttm].html_tpl(
                 title="`{}' activities".format(p.title),
@@ -1174,7 +1188,6 @@ class Environment:
                 )
 
         return ret
-
 
     def new_issue_access_check(self, rts, project_record):
 
@@ -1299,7 +1312,7 @@ class Environment:
             'worker': list_strip_remove_empty_remove_duplicated_lines(
                 decoded_params['assigned_to'].splitlines()
                 ),
-            'watcher':list_strip_remove_empty_remove_duplicated_lines(
+            'watcher': list_strip_remove_empty_remove_duplicated_lines(
                 decoded_params['watchers'].splitlines()
                 )
             }
@@ -1338,7 +1351,8 @@ class Environment:
 
         elif project_name != issue.project_name:
             raise bottle.HTTPError(
-                404, body="Selected issue is not belongings to selected project"
+                404,
+                body="Selected issue is not belongings to selected project"
                 )
 
         else:
@@ -1352,7 +1366,8 @@ class Environment:
 
             updates = self.rtenv.modules[self.ttm].get_issue_updates(issue_id)
 
-            updates_table = self.rtenv.modules[self.ttm].issue_update_table_tpl(updates)
+            updates_table = self.rtenv.modules[self.ttm].\
+                issue_update_table_tpl(updates)
 
             people = self.rtenv.modules[self.ttm].issue_get_roles(issue_id)
 
@@ -1372,7 +1387,9 @@ class Environment:
                 updated_date=issue.updation_date,
                 comments=updates_table,
                 comment='',
-                relations=self.rtenv.modules[self.ttm].issue_get_relations(issue_id)
+                relations=self.rtenv.modules[self.ttm].issue_get_relations(
+                    issue_id
+                    )
                 )
 
             ret = self.rtenv.modules[self.ttm].html_tpl(
@@ -1424,7 +1441,6 @@ class Environment:
             )
         _t.sort()
         corrected_watchers = '\n'.join(_t)
-
 
         descr_diff = 'None'
         if description_old != description:
@@ -1561,7 +1577,7 @@ class Environment:
                     'worker': list_strip_remove_empty_remove_duplicated_lines(
                         decoded_params['assigned_to'].splitlines()
                         ),
-                    'watcher':list_strip_remove_empty_remove_duplicated_lines(
+                    'watcher': list_strip_remove_empty_remove_duplicated_lines(
                         decoded_params['watchers'].splitlines()
                         )
                     }
@@ -1610,9 +1626,13 @@ class Environment:
 
                 self.rtenv.modules[self.ttm].issue_del_relations(issue_id)
 
-                delete_relation_list = decoded_params.dict.get('delete_relation[]', [])
+                delete_relation_list = decoded_params.dict.get(
+                    'delete_relation[]', []
+                    )
 
-                for i in range(len(decoded_params.dict.get('relation_type[]', []))):
+                for i in range(
+                    len(decoded_params.dict.get('relation_type[]', []))
+                    ):
 
                     rti = decoded_params.dict['relation_target_id[]'][i]
                     try:
@@ -1672,4 +1692,3 @@ def install_launcher(path):
         clear_before_copy=False,
         dst_must_be_empty=False
         )
-
