@@ -1,5 +1,5 @@
 <%
-title = "Session Cookie: {}\nValid Till: {}".format(rts_object.id, rts_object.session_valid_till)
+title = "Session Cookie: {}; Valid Till: {}".format(rts_object.id, rts_object.session_valid_till)
 %><div>
 
     % if rts_object.jid:
@@ -8,7 +8,7 @@ title = "Session Cookie: {}\nValid Till: {}".format(rts_object.id, rts_object.se
     </div>
     % else:
     <div>
-        <strong title="${ title | x }">Guest</strong>
+        <strong title="${ title | x }">Guest: You'r cookie is ${ rts_object.id | x }</strong>
     </div>
     % endif 
 

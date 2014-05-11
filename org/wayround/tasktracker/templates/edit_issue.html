@@ -202,10 +202,6 @@ def hide_show(control_name):
         </table>
     </div>
 </div>
-<div id="issue_page_comments_and_updates">
-    <div class="control_title_normal">Comments/Updates:</div>
-    <div>${comments}</div>
-</div>
 % endif
 <div>
     <form method="POST" action="${ action | x }">
@@ -256,3 +252,9 @@ def hide_show(control_name):
         </div>
     </form>
 </div>
+% if mode == 'view':
+<div id="issue_page_comments_and_updates">
+    <div class="control_title_normal">Comments/Updates:</div>
+    <div>${comments}</div>
+</div>
+% endif
