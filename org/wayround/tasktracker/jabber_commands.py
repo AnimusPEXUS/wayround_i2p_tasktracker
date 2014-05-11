@@ -35,7 +35,6 @@ class JabberCommands:
 
         roles = self._site.get_site_roles_for_jid(asker_jid)
 
-
         error = False
 
         jid_to_know = asker_jid
@@ -51,11 +50,9 @@ class JabberCommands:
 
                 jid_to_know = args[0]
 
-                jfs = org.wayround.xmpp.core.jid_from_string(
-                    jid_to_know
-                    )
-
-                if not jfs:
+                try:
+                    org.wayround.xmpp.core.JID.new_from_str(jid_to_know)
+                except:
 
                     messages.append(
                         {'type': 'error',
@@ -115,7 +112,7 @@ class JabberCommands:
             text += '\n'
 
             ret_stanza.body = [
-                org.wayround.xmpp.stanza_elements.Body(
+                org.wayround.xmpp.core.MessageBody(
                     text=text
                     )
                 ]
@@ -145,27 +142,27 @@ class JabberCommands:
             if len(args) == 1:
                 jid_to_reg = args[0]
 
-                if org.wayround.xmpp.core.jid_from_string(
-                    jid_to_reg
-                    ) == None:
+                try:
+                    org.wayround.xmpp.core.JID.new_from_str(jid_to_reg)
+                except:
                     messages.append(
-                        {'type':'error',
-                         'text':"Can't parse supplied JID"}
+                        {'type': 'error',
+                         'text': "Can't parse supplied JID"}
                         )
                     error = True
 
         else:
             if '-r' in opts:
                 messages.append(
-                    {'type':'error',
-                     'text':"You are not admin and can't use -r option"}
+                    {'type': 'error',
+                     'text': "You are not admin and can't use -r option"}
                     )
                 error = True
 
             if len(args) != 0:
                 messages.append(
-                    {'type':'error',
-                     'text':"You are not admin and can't use arguments"}
+                    {'type': 'error',
+                     'text': "You are not admin and can't use arguments"}
                     )
                 error = True
 
@@ -183,15 +180,15 @@ class JabberCommands:
                 and roles['site_role'] != 'guest'):
 
                 messages.append(
-                    {'type':'error',
-                     'text':'You already registered'}
+                    {'type': 'error',
+                     'text': 'You already registered'}
                     )
 
             elif registrant_role != None:
 
                 messages.append(
-                    {'type':'error',
-                     'text':'{} already have role: {}'.format(
+                    {'type': 'error',
+                     'text': '{} already have role: {}'.format(
                         jid_to_reg,
                         registrant_role.role
                         )
@@ -211,18 +208,18 @@ class JabberCommands:
                             )
                     except:
                         messages.append(
-                            {'type':'error',
-                             'text':"can't add role. is already registered?"}
+                            {'type': 'error',
+                             'text': "can't add role. is already registered?"}
                             )
                     else:
                         messages.append(
-                            {'type':'info',
-                             'text':'registration successful'}
+                            {'type': 'info',
+                             'text': 'registration successful'}
                             )
                 else:
                     messages.append(
-                        {'type':'error',
-                         'text':"registration not allowed"}
+                        {'type': 'error',
+                         'text': "registration not allowed"}
                         )
 
         return ret
@@ -245,7 +242,7 @@ class JabberCommands:
         if len(args) != 1:
             messages.append(
                 {'type': 'error',
-                 'text':"Cookie is required parameter"}
+                 'text': "Cookie is required parameter"}
                 )
             error = True
         else:
@@ -263,15 +260,16 @@ class JabberCommands:
             else:
 
                 session = (
-                    self._site.rtenv.modules[self._site.ttm].get_session_by_cookie(
-                        cookie
-                        )
+                    self._site.rtenv.modules[self._site.ttm].\
+                        get_session_by_cookie(
+                            cookie
+                            )
                     )
 
                 if not session:
                     messages.append(
                         {'type': 'error',
-                         'text':"Invalid session cookie"}
+                         'text': "Invalid session cookie"}
                         )
                 else:
 
@@ -279,10 +277,11 @@ class JabberCommands:
                         (roles['site_role'] != 'admin' and
                          self._site.login_access_check(asker_jid))):
 
-                        self._site.rtenv.modules[self._site.ttm].assign_jid_to_session(
-                            session,
-                            asker_jid
-                            )
+                        self._site.rtenv.modules[self._site.ttm].\
+                            assign_jid_to_session(
+                                session,
+                                asker_jid
+                                )
 
                         messages.append(
                             {'type': 'info',
@@ -328,8 +327,8 @@ register [-r=ROLE] [JID]      register [self] or [somebody else](only admin can
                               when user registers self, he can not use -r
                               parameter, and -r will always be 'user'.
 
-                              register will succeed only if it is not prohibited
-                              on site.
+                              register will succeed only if it is not
+                              prohibited on site.
 
 login SESSION_COOKIE          make user with named SESSION_COOKIE logged in on
                               site
@@ -337,7 +336,7 @@ login SESSION_COOKIE          make user with named SESSION_COOKIE logged in on
 
 """
         ret_stanza.body = [
-            org.wayround.xmpp.stanza_elements.Body(
+            org.wayround.xmpp.core.MessageBody(
                 text=text
                 )
             ]
