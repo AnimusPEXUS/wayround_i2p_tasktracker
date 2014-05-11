@@ -3,9 +3,10 @@ import logging
 import threading
 
 import org.wayround.softengine.rtenv
-import org.wayround.tasktracker.modules
 import org.wayround.tasktracker.jabber_commands
+import org.wayround.tasktracker.modules
 import org.wayround.xmpp.client_bot
+import org.wayround.xmpp.core
 
 
 def commands():
@@ -72,7 +73,7 @@ def site_start(comm, opts, args, adds):
 
     threading.Thread(
         name="Bot Thread",
-        target=bot.start,
+        target=bot.connect,
         args=(jid, xmpp_connection_info, xmpp_auth_info,),
         ).start()
 
@@ -86,7 +87,7 @@ def site_start(comm, opts, args, adds):
     exit_event.set()
 
     logging.debug("starting bot stop")
-    bot.stop()
+    bot.disconnect()
     logging.debug("starting site stop")
     site.stop()
     logging.debug("all things stopped")

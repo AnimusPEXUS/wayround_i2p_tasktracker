@@ -1,11 +1,12 @@
 #!python3.3
 
 import getopt
+import logging
 import os.path
 import sys
-import logging
 
 import org.wayround.tasktracker.env
+
 
 def print_help():
     print("""
@@ -14,6 +15,7 @@ usage: {} path
 
 Make new tracker
 """.format(os.path.basename(__file__)))
+
 
 def main():
 

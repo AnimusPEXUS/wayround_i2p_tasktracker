@@ -1,15 +1,13 @@
 
+import datetime
+import hashlib
 import os.path
 import random
-import hashlib
-import datetime
 
 import bottle
-
+from mako.template import Template
 import sqlalchemy
 import sqlalchemy.orm.exc
-
-from mako.template import Template
 
 import org.wayround.softengine.rtenv
 import org.wayround.tasktracker.env
@@ -691,7 +689,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
             assigned = ''
 
-            issue_roles = self.rtenv.db.session.query(
+            issue_roles = self.rtenv.db.sess.query(
                 self.rtenv.models[self.module_name]['IssueRole']
                 ).filter_by(issue_id=i.issue_id).all()
 
@@ -973,12 +971,12 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         try:
             if what == 'cookie':
-                ret = self.rtenv.db.session.query(
+                ret = self.rtenv.db.sess.query(
                     self.rtenv.models[self.module_name]['Session']
                     ).filter_by(session_cookie=data).one()
 
             if what == 'jid':
-                ret = self.rtenv.db.session.query(
+                ret = self.rtenv.db.sess.query(
                     self.rtenv.models[self.module_name]['Session']
                     ).filter_by(jid=data).one()
 
@@ -1007,8 +1005,8 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         s = self.rtenv.models[self.module_name]['Session']()
         s.session_cookie = new_hash
 
-        self.rtenv.db.session.add(s)
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.add(s)
+        self.rtenv.db.sess.commit()
         self.renew_session(s)
 
         return s
@@ -1035,40 +1033,40 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             datetime.timedelta(seconds=self.session_lifetime)
             )
 
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.commit()
 
         return
 
     def assign_jid_to_session(self, session, jid):
 
-        sessions = self.rtenv.db.session.query(
+        sessions = self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['Session']
             ).all()
 
         for i in sessions:
             if i.jid == jid:
-                self.rtenv.db.session.delete(i)
+                self.rtenv.db.sess.delete(i)
 
         session.jid = jid
 
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.commit()
 
         return
 
     def cleanup_sessions(self):
 
-        sessions = self.rtenv.db.session.query(
+        sessions = self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['Session']
             ).all()
 
         for i in sessions[:]:
             if i.session_cookie == None or i.session_valid_till == None:
-                self.rtenv.db.session.delete(i)
+                self.rtenv.db.sess.delete(i)
                 sessions.remove(i)
 
         for i in sessions[:]:
             if i.session_valid_till < datetime.datetime.now():
-                self.rtenv.db.session.delete(i)
+                self.rtenv.db.sess.delete(i)
                 sessions.remove(i)
 
         for i in sessions[:]:
@@ -1079,22 +1077,22 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
                     )
                 ):
 
-                self.rtenv.db.session.delete(i)
+                self.rtenv.db.sess.delete(i)
                 sessions.remove(i)
 
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.commit()
 
         return
 
     def get_projects(self):
-        return self.rtenv.db.session.query(
+        return self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['Project']
             ).all()
 
     def get_project(self, name):
         p = None
         try:
-            p = self.rtenv.db.session.query(
+            p = self.rtenv.db.sess.query(
                 self.rtenv.models[self.module_name]['Project']
                 ).filter_by(name=name).one()
         except sqlalchemy.orm.exc.NoResultFound:
@@ -1104,7 +1102,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
     def get_project_issues_count(self, name, status):
 
-        return self.rtenv.db.session.query(
+        return self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['Issue']
             ).filter_by(
                 project_name=name,
@@ -1116,13 +1114,13 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         i = None
 
         try:
-            self.rtenv.db.session.query(
+            self.rtenv.db.sess.query(
                 self.rtenv.models[self.module_name]['Project']
                 ).filter_by(name=name).one()
         except sqlalchemy.orm.exc.NoResultFound:
             pass
         else:
-            i = self.rtenv.db.session.query(
+            i = self.rtenv.db.sess.query(
                 self.rtenv.models[self.module_name]['Issue']
                 ).filter_by(
                     project_name=name,
@@ -1137,7 +1135,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
     def get_issue(self, issue_id):
         p = None
         try:
-            p = self.rtenv.db.session.query(
+            p = self.rtenv.db.sess.query(
                 self.rtenv.models[self.module_name]['Issue']
                 ).filter_by(issue_id=issue_id).one()
         except sqlalchemy.orm.exc.NoResultFound:
@@ -1149,7 +1147,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         p = None
         try:
-            p = self.rtenv.db.session.query(
+            p = self.rtenv.db.sess.query(
                 self.rtenv.models[self.module_name]['Project']
                 ).filter_by(name=name).one()
         except sqlalchemy.orm.exc.NoResultFound:
@@ -1161,14 +1159,14 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             p.title = title
             p.description = description
             p.guests_access_allowed = guests_access_allowed
-            self.rtenv.db.session.add(p)
+            self.rtenv.db.sess.add(p)
 
         else:
             raise CreatingAlreadyExistingProject(
                 "Trying to create already existing project"
                 )
 
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.commit()
 
         return p
 
@@ -1191,7 +1189,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             p.description = description
             p.guests_access_allowed = guests_access_allowed
 
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.commit()
 
         return p
 
@@ -1207,7 +1205,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         ):
 
         try:
-            self.rtenv.db.session.query(
+            self.rtenv.db.sess.query(
                 self.rtenv.models[self.module_name]['Project']
                 ).filter_by(name=project_name).one()
         except sqlalchemy.orm.exc.NoResultFound:
@@ -1223,9 +1221,9 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         issue.creation_date = creation_date
         issue.updation_date = creation_date
 
-        self.rtenv.db.session.add(issue)
+        self.rtenv.db.sess.add(issue)
 
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.commit()
 
         return issue
 
@@ -1242,7 +1240,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         issue = None
         try:
-            issue = self.rtenv.db.session.query(
+            issue = self.rtenv.db.sess.query(
                 self.rtenv.models[self.module_name]['Issue']
                 ).filter_by(issue_id=issue_id).one()
 
@@ -1262,7 +1260,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             issue.description = description
             issue.updation_date = updation_date
 
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.commit()
 
         return
 
@@ -1272,7 +1270,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         for i in ['worker', 'watcher']:
 
-            t = self.rtenv.db.session.query(
+            t = self.rtenv.db.sess.query(
                 self.rtenv.models[self.module_name]['IssueRole']
                 ).filter_by(issue_id=issue_id, role=i).all()
 
@@ -1308,13 +1306,13 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
                 roles[i].sort()
 
-                t = self.rtenv.db.session.query(
+                t = self.rtenv.db.sess.query(
                     self.rtenv.models[self.module_name]['IssueRole']
                     ).filter_by(issue_id=issue_id, role=i).all()
 
                 for j in t:
                     if j.jid not in roles[i]:
-                        self.rtenv.db.session.delete(j)
+                        self.rtenv.db.sess.delete(j)
 
                 for j in roles[i]:
                     h_found = False
@@ -1329,9 +1327,9 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
                         new_role.jid = j
                         new_role.role = i
                         new_role.issue_id = issue_id
-                        self.rtenv.db.session.add(new_role)
+                        self.rtenv.db.sess.add(new_role)
 
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.commit()
 
         return
 
@@ -1374,20 +1372,20 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         issueup.comment = comment
         issueup.date = date
 
-        self.rtenv.db.session.add(issueup)
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.add(issueup)
+        self.rtenv.db.sess.commit()
 
         return issueup
 
     def get_issue_updates(self, issue_id):
 
-        return self.rtenv.db.session.query(
+        return self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['IssueUpdate']
             ).filter_by(issue_id=issue_id).all()
 
     def get_project_updates_count(self, project_name):
 
-        return self.rtenv.db.session.query(
+        return self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['IssueUpdate']
             ).filter_by(
                 project_name=project_name
@@ -1395,7 +1393,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
     def get_project_updates(self, project_name, start=0, stop=100):
 
-        return self.rtenv.db.session.query(
+        return self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['IssueUpdate']
             ).filter_by(
                 project_name=project_name
@@ -1410,7 +1408,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         res = None
 
         try:
-            res = self.rtenv.db.session.query(
+            res = self.rtenv.db.sess.query(
                 self.rtenv.models[self.module_name]['SiteRole']
                 ).filter_by(jid=jid).one()
         except sqlalchemy.orm.exc.NoResultFound:
@@ -1420,29 +1418,29 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
             if not ret.role in self.site_roles:
 
-                self.rtenv.db.session.delete(ret)
+                self.rtenv.db.sess.delete(ret)
 
                 ret = None
 
-                self.rtenv.db.session.commit()
+                self.rtenv.db.sess.commit()
 
         return ret
 
     def get_site_roles(self):
 
-        ret = self.rtenv.db.session.query(
+        ret = self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['SiteRole']
             ).all()
 
         for i in ret[:]:
             if not i.role in self.site_roles:
 
-                self.rtenv.db.session.delete(i)
+                self.rtenv.db.sess.delete(i)
 
                 while i in ret:
                     ret.remove(i)
 
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.commit()
 
         return ret
 
@@ -1463,7 +1461,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         for i in old_roles:
             if not i.jid in roles.keys():
-                self.rtenv.db.session.delete(i)
+                self.rtenv.db.sess.delete(i)
 
         for i in roles.keys():
 
@@ -1482,7 +1480,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
                 role.jid = i
                 role.role = roles[i]
 
-                self.rtenv.db.session.add(role)
+                self.rtenv.db.sess.add(role)
 
             else:
 
@@ -1490,7 +1488,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
                 role.role = roles[i]
 
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.commit()
 
         return
 
@@ -1501,9 +1499,9 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         siterole.jid = jid
         siterole.role = role
 
-        self.rtenv.db.session.add(siterole)
+        self.rtenv.db.sess.add(siterole)
 
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.commit()
 
         return
 
@@ -1512,7 +1510,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         ret = None
 
         try:
-            ret = self.rtenv.db.session.query(
+            ret = self.rtenv.db.sess.query(
                 self.rtenv.models[self.module_name]['ProjectRole']
                 ).filter_by(jid=jid, project_name=project_name).one()
         except sqlalchemy.orm.exc.NoResultFound:
@@ -1522,7 +1520,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
     def get_project_roles_of_jid(self, jid):
 
-        ret = self.rtenv.db.session.query(
+        ret = self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['ProjectRole']
             ).filter_by(jid=jid).all()
 
@@ -1541,19 +1539,19 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
     def get_project_roles(self, project_name):
 
-        ret = self.rtenv.db.session.query(
+        ret = self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['ProjectRole']
             ).filter_by(project_name=project_name).all()
 
         for i in ret[:]:
             if not i.role in self.project_roles:
 
-                self.rtenv.db.session.delete(i)
+                self.rtenv.db.sess.delete(i)
 
                 while i in ret:
                     ret.remove(i)
 
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.commit()
 
         return ret
 
@@ -1574,7 +1572,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         for i in old_roles:
             if not i.jid in roles.keys():
-                self.rtenv.db.session.delete(i)
+                self.rtenv.db.sess.delete(i)
 
         for i in roles.keys():
 
@@ -1594,7 +1592,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
                 role.role = roles[i]
                 role.project_name = project_name
 
-                self.rtenv.db.session.add(role)
+                self.rtenv.db.sess.add(role)
 
             else:
 
@@ -1602,7 +1600,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
                 role.role = roles[i]
 
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.commit()
 
         return
 
@@ -1613,7 +1611,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         res = None
 
         try:
-            res = self.rtenv.db.session.query(
+            res = self.rtenv.db.sess.query(
                 self.rtenv.models[self.module_name]['SiteSetting']
                 ).filter_by(name=name).one()
         except sqlalchemy.orm.exc.NoResultFound:
@@ -1628,7 +1626,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         res = None
 
         try:
-            res = self.rtenv.db.session.query(
+            res = self.rtenv.db.sess.query(
                 self.rtenv.models[self.module_name]['SiteSetting']
                 ).filter_by(name=name).one()
         except sqlalchemy.orm.exc.NoResultFound:
@@ -1639,11 +1637,11 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             res.name = name
             res.value = value
 
-            self.rtenv.db.session.add(res)
+            self.rtenv.db.sess.add(res)
         else:
             res.value = value
 
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.commit()
 
         return
 
@@ -1703,11 +1701,11 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
     def issue_get_relations(self, issue_id):
 
-        by_ii = self.rtenv.db.session.query(
+        by_ii = self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['IssueRelation']
             ).filter_by(issue_id=issue_id).all()
 
-        by_tii = self.rtenv.db.session.query(
+        by_tii = self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['IssueRelation']
             ).filter_by(target_issue_id=issue_id).all()
 
@@ -1732,7 +1730,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
         res = None
         try:
-            res = self.rtenv.db.session.query(
+            res = self.rtenv.db.sess.query(
                 self.rtenv.models[self.module_name]['IssueRelation']
                 ).filter_by(
                     issue_id=issue_id, target_issue_id=target_issue_id, typ=typ
@@ -1741,8 +1739,8 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
             pass
 
         if res == None:
-            self.rtenv.db.session.add(ir)
-            self.rtenv.db.session.commit()
+            self.rtenv.db.sess.add(ir)
+            self.rtenv.db.sess.commit()
 
             ret = ir
 
@@ -1753,26 +1751,26 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
 
     def issue_del_relation_by_irid(self, irid):
 
-        self.rtenv.db.session.query(
+        self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['IssueRelation']
             ).filter_by(
                 irid=irid
                 ).delete()
 
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.commit()
 
         return
 
     def issue_del_relations(self, issue_id):
 
-        self.rtenv.db.session.query(
+        self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['IssueRelation']
             ).filter_by(issue_id=issue_id).delete()
 
-        self.rtenv.db.session.query(
+        self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['IssueRelation']
             ).filter_by(target_issue_id=issue_id).delete()
 
-        self.rtenv.db.session.commit()
+        self.rtenv.db.sess.commit()
 
         return
