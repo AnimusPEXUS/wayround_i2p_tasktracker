@@ -68,7 +68,7 @@ pre.issue_description {
 /* PROJECT VIEW PAGE */
 #project_page_issue_table {
     width: 100%;
-    table-layout: fixed;
+    table-layout: auto;
 }
 
 #project_page_issue_table>tbody>tr>td {
