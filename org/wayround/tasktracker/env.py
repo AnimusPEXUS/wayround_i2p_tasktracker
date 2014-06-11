@@ -11,51 +11,14 @@ bottle.Request.MAX_PARAMS = 100
 bottle.request.MEMFILE_MAX = 10 * 1024 * 1024
 bottle.request.MAX_PARAMS = 100
 
+import org.wayround.utils.bottle
 import org.wayround.utils.file
+import org.wayround.utils.http
 from org.wayround.utils.list import (
     list_strip_remove_empty_remove_duplicated_lines
     )
 
 import org.wayround.softengine.rtenv
-
-
-class WSGIRefServer(bottle.ServerAdapter):
-
-    def run(self, handler):
-
-        import wsgiref.simple_server
-
-        if self.quiet:
-
-            class QuietHandler(wsgiref.simple_server.WSGIRequestHandler):
-
-                def log_request(self, *args, **kw):
-                    pass
-
-            self.options['handler_class'] = QuietHandler
-
-        self.srv = wsgiref.simple_server.make_server(
-            self.host,
-            self.port,
-            handler,
-            **self.options
-            )
-
-        self.srv.serve_forever()
-
-        return
-
-
-def convert_cb_params_to_boolean(params, names):
-
-    for i in names:
-
-        if i in params and (
-            params[i].lower() in ['on', 'yes', 'true', 'ok']
-            ):
-            params[i] = True
-        else:
-            params[i] = False
 
 
 class Session:
@@ -75,21 +38,6 @@ class PageAction:
 
         self.title = title
         self.href = href
-
-
-class PageSpan:
-
-    def __init__(self, text, cl):
-
-        self.text = text
-        self.cl = cl
-
-
-class PageHtml:
-
-    def __init__(self, markup):
-
-        self.markup = markup
 
 
 class Environment:
@@ -185,7 +133,9 @@ class Environment:
         self._bot = bot
 
     def start(self):
-        self.server = WSGIRefServer(host=self.host, port=self.port)
+        self.server = org.wayround.utils.bottle.WSGIRefServer(
+            host=self.host, port=self.port
+            )
 
         return bottle.run(
             self.app,
@@ -478,7 +428,7 @@ class Environment:
 
         decoded_params = bottle.request.params.decode('utf-8')
 
-        convert_cb_params_to_boolean(
+        org.wayround.utils.http.convert_cb_params_to_boolean(
             decoded_params,
             [
             'user_can_register_self',
@@ -674,7 +624,7 @@ class Environment:
 
         decoded_params = bottle.request.params.decode('utf-8')
 
-        convert_cb_params_to_boolean(
+        org.wayround.utils.http.convert_cb_params_to_boolean(
             decoded_params,
             [
             'guests_access_allowed'
@@ -766,7 +716,7 @@ class Environment:
 
         decoded_params = bottle.request.params.decode('utf-8')
 
-        convert_cb_params_to_boolean(
+        org.wayround.utils.http.convert_cb_params_to_boolean(
             decoded_params,
             [
             'guests_access_allowed'
