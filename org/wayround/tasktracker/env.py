@@ -577,7 +577,7 @@ class Environment:
 
         return
 
-    def new_project_access_chec(self, rts):
+    def new_project_access_check(self, rts):
 
         if (rts.site_role != 'admin' and
             self.rtenv.modules[self.ttm].get_site_setting(
@@ -593,7 +593,7 @@ class Environment:
 
         rts = self.generate_rts_object()
 
-        self.new_project_access_chec(rts)
+        self.new_project_access_check(rts)
 
         actions = self.get_page_actions(
             mode='edit_project',
@@ -616,7 +616,7 @@ class Environment:
 
         rts = self.generate_rts_object()
 
-        self.new_project_access_chec(rts)
+        self.new_project_access_check(rts)
 
         for i in ['name', 'title', 'description']:
             if not i in bottle.request.params:
