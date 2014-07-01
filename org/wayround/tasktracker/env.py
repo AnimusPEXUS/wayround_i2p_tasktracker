@@ -146,9 +146,6 @@ class Environment:
 
     def stop(self):
         self.server.srv.shutdown()
-#        print("bottle.default_app = {}".format(bottle.default_app))
-#        bottle.default_app[0].close()
-#        self.app.close()
 
     def get_page_actions(
         self,

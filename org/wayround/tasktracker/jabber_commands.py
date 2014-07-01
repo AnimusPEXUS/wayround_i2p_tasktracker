@@ -5,11 +5,11 @@ import org.wayround.xmpp.core
 class JabberCommands:
 
     def __init__(self):
-        self._site = None
+        self._environ = None
 
-    def set_site(self, site):
+    def set_environ(self, environ):
 
-        self._site = site
+        self._environ = environ
 
     def commands_dict(self):
         return dict(
@@ -25,15 +25,15 @@ class JabberCommands:
 
     def status(self, comm, opts, args, adds):
 
-        if not self._site:
-            raise ValueError("use set_site() method")
+        if not self._environ:
+            raise ValueError("use set_environ() method")
 
         ret = 0
         asker_jid = adds['asker_jid']
         messages = adds['messages']
         ret_stanza = adds['ret_stanza']
 
-        roles = self._site.get_site_roles_for_jid(asker_jid)
+        roles = self._environ.get_site_roles_for_jid(asker_jid)
 
         error = False
 
@@ -85,7 +85,7 @@ class JabberCommands:
             roles_to_print = roles
 
             if roles['site_role'] == 'admin':
-                roles_to_print = self._site.get_site_roles_for_jid(
+                roles_to_print = self._environ.get_site_roles_for_jid(
                     jid_to_know,
                     all_site_projects=True
                     )
@@ -121,14 +121,14 @@ class JabberCommands:
 
     def register(self, comm, opts, args, adds):
 
-        if not self._site:
-            raise ValueError("use set_site() method")
+        if not self._environ:
+            raise ValueError("use set_environ() method")
 
         ret = 0
         asker_jid = adds['asker_jid']
         messages = adds['messages']
 
-        roles = self._site.get_site_roles_for_jid(asker_jid)
+        roles = self._environ.get_site_roles_for_jid(asker_jid)
 
         error = False
 
@@ -170,8 +170,8 @@ class JabberCommands:
             pass
         else:
 
-            registrant_role = self._site.rtenv.modules[
-                self._site.ttm
+            registrant_role = self._environ.rtenv.modules[
+                self._environ.ttm
                 ].get_site_role(
                 jid_to_reg
                 )
@@ -199,10 +199,10 @@ class JabberCommands:
 
                 if ((roles['site_role'] == 'admin') or
                     (roles['site_role'] != 'admin' and
-                     self._site.register_access_check(asker_jid))):
+                     self._environ.register_access_check(asker_jid))):
 
                     try:
-                        self._site.rtenv.modules[self._site.ttm].add_site_role(
+                        self._environ.rtenv.modules[self._environ.ttm].add_site_role(
                             jid_to_reg,
                             role
                             )
@@ -226,14 +226,14 @@ class JabberCommands:
 
     def login(self, comm, opts, args, adds):
 
-        if not self._site:
-            raise ValueError("use set_site() method")
+        if not self._environ:
+            raise ValueError("use set_environ() method")
 
         ret = 0
         asker_jid = adds['asker_jid']
         messages = adds['messages']
 
-        roles = self._site.get_site_roles_for_jid(asker_jid)
+        roles = self._environ.get_site_roles_for_jid(asker_jid)
 
         cookie = None
 
@@ -260,7 +260,7 @@ class JabberCommands:
             else:
 
                 session = (
-                    self._site.rtenv.modules[self._site.ttm].\
+                    self._environ.rtenv.modules[self._environ.ttm].\
                         get_session_by_cookie(
                             cookie
                             )
@@ -275,9 +275,9 @@ class JabberCommands:
 
                     if ((roles['site_role'] == 'admin') or
                         (roles['site_role'] != 'admin' and
-                         self._site.login_access_check(asker_jid))):
+                         self._environ.login_access_check(asker_jid))):
 
-                        self._site.rtenv.modules[self._site.ttm].\
+                        self._environ.rtenv.modules[self._environ.ttm].\
                             assign_jid_to_session(
                                 session,
                                 asker_jid
@@ -299,8 +299,8 @@ class JabberCommands:
 
     def help(self, comm, opts, args, adds):
 
-        if not self._site:
-            raise ValueError("use set_site() method")
+        if not self._environ:
+            raise ValueError("use set_environ() method")
 
         ret = 0
         ret_stanza = adds['ret_stanza']

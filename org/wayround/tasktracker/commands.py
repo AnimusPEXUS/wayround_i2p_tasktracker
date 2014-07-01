@@ -54,7 +54,7 @@ def site_start(comm, opts, args, adds):
 
     bot = org.wayround.xmpp.client_bot.Bot()
 
-    site = org.wayround.tasktracker.env.Environment(
+    environ = org.wayround.tasktracker.env.Environment(
         rtenv,
         host=host,
         port=port,
@@ -63,13 +63,13 @@ def site_start(comm, opts, args, adds):
 
     threading.Thread(
         name="Site Thread",
-        target=site.start
+        target=environ.start
         ).start()
 
-    commands.set_site(site)
+    commands.set_environ(environ)
 
     bot.set_commands(commands.commands_dict())
-    site.set_bot(bot)
+    environ.set_bot(bot)
 
     threading.Thread(
         name="Bot Thread",
@@ -88,8 +88,8 @@ def site_start(comm, opts, args, adds):
 
     logging.debug("starting bot stop")
     bot.disconnect()
-    logging.debug("starting site stop")
-    site.stop()
+    logging.debug("starting environ stop")
+    environ.stop()
     logging.debug("all things stopped")
 
     logging.debug("MainThread exiting")
