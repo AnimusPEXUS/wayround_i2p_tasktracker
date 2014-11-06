@@ -11,11 +11,7 @@ import org.wayround.xmpp.core
 
 def commands():
     return dict(
-        site=dict(
-            start=site_start
-            ),
-        help=dict(
-            )
+        start=site_start
         )
 
 
@@ -33,7 +29,7 @@ def site_start(comm, opts, args, adds):
     xmpp_connection_info = adds['xmpp_connection_info']
     xmpp_auth_info = adds['xmpp_auth_info']
 
-    db = org.wayround.softengine.rtenv.DB(
+    db = org.wayround.softengine.rtenv.DB_SQLAlchemy(
         db_config,
         echo=db_echo,
         # FIXME: this is unsafe?
