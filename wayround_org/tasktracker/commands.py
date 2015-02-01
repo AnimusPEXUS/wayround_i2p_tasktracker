@@ -2,11 +2,11 @@
 import logging
 import threading
 
-import org.wayround.softengine.rtenv
-import org.wayround.tasktracker.jabber_commands
-import org.wayround.tasktracker.modules
-import org.wayround.xmpp.client_bot
-import org.wayround.xmpp.core
+import wayround_org.softengine.rtenv
+import wayround_org.tasktracker.jabber_commands
+import wayround_org.tasktracker.modules
+import wayround_org.xmpp.client_bot
+import wayround_org.xmpp.core
 
 
 def commands():
@@ -29,16 +29,16 @@ def site_start(comm, opts, args, adds):
     xmpp_connection_info = adds['xmpp_connection_info']
     xmpp_auth_info = adds['xmpp_auth_info']
 
-    db = org.wayround.softengine.rtenv.DB_SQLAlchemy(
+    db = wayround_org.softengine.rtenv.DB_SQLAlchemy(
         db_config,
         echo=db_echo,
         # FIXME: this is unsafe?
         connect_args={'check_same_thread': False}
         )
 
-    rtenv = org.wayround.softengine.rtenv.RuntimeEnvironment(db)
+    rtenv = wayround_org.softengine.rtenv.RuntimeEnvironment(db)
 
-    org.wayround.tasktracker.modules.TaskTracker(rtenv)
+    wayround_org.tasktracker.modules.TaskTracker(rtenv)
 
     exit_event = threading.Event()
 
@@ -46,11 +46,11 @@ def site_start(comm, opts, args, adds):
 
     rtenv.db.create_all()
 
-    commands = org.wayround.tasktracker.jabber_commands.JabberCommands()
+    commands = wayround_org.tasktracker.jabber_commands.JabberCommands()
 
-    bot = org.wayround.xmpp.client_bot.Bot()
+    bot = wayround_org.xmpp.client_bot.Bot()
 
-    environ = org.wayround.tasktracker.env.Environment(
+    environ = wayround_org.tasktracker.env.Environment(
         rtenv,
         host=host,
         port=port,

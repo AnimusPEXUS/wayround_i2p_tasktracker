@@ -9,8 +9,8 @@ from mako.template import Template
 import sqlalchemy
 import sqlalchemy.orm.exc
 
-import org.wayround.softengine.rtenv
-import org.wayround.tasktracker.env
+import wayround_org.softengine.rtenv
+import wayround_org.tasktracker.env
 
 
 class WrongPageAction(Exception):
@@ -25,11 +25,11 @@ class EditingNotExistingProject(Exception):
     pass
 
 
-class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
+class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
 
     def __init__(self, rtenv):
 
-        self.module_name = 'org_wayround_tasktracker_modules_TaskTracker'
+        self.module_name = 'wayround_org_tasktracker_modules_TaskTracker'
 
         self.session_lifetime = 24 * 60 * 60
 
@@ -749,7 +749,7 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
     def actions_tpl(self, actions, session_actions):
 
         for i in actions:
-            if not isinstance(i, org.wayround.tasktracker.env.PageAction):
+            if not isinstance(i, wayround_org.tasktracker.env.PageAction):
                 raise WrongPageAction("Wrong page action type")
 
         return self.rtenv.templates[self.module_name]['actions'].render(
@@ -762,9 +762,9 @@ class TaskTracker(org.wayround.softengine.rtenv.ModulePrototype):
         rts_object=None
         ):
 
-        if not  isinstance(rts_object, org.wayround.tasktracker.env.Session):
+        if not  isinstance(rts_object, wayround_org.tasktracker.env.Session):
             raise ValueError(
-                "rts_object must be of type org.wayround.tasktracker.env.Session"
+                "rts_object must be of type wayround_org.tasktracker.env.Session"
                 )
 
         return self.rtenv.templates[self.module_name]['session'].render(

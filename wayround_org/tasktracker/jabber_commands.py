@@ -1,5 +1,5 @@
 
-import org.wayround.xmpp.core
+import wayround_org.xmpp.core
 
 
 class JabberCommands:
@@ -51,7 +51,7 @@ class JabberCommands:
                 jid_to_know = args[0]
 
                 try:
-                    org.wayround.xmpp.core.JID.new_from_str(jid_to_know)
+                    wayround_org.xmpp.core.JID.new_from_str(jid_to_know)
                 except:
 
                     messages.append(
@@ -112,7 +112,7 @@ class JabberCommands:
             text += '\n'
 
             ret_stanza.body = [
-                org.wayround.xmpp.core.MessageBody(
+                wayround_org.xmpp.core.MessageBody(
                     text=text
                     )
                 ]
@@ -143,7 +143,7 @@ class JabberCommands:
                 jid_to_reg = args[0]
 
                 try:
-                    org.wayround.xmpp.core.JID.new_from_str(jid_to_reg)
+                    wayround_org.xmpp.core.JID.new_from_str(jid_to_reg)
                 except:
                     messages.append(
                         {'type': 'error',
@@ -336,7 +336,7 @@ login SESSION_COOKIE          make user with named SESSION_COOKIE logged in on
 
 """
         ret_stanza.body = [
-            org.wayround.xmpp.core.MessageBody(
+            wayround_org.xmpp.core.MessageBody(
                 text=text
                 )
             ]

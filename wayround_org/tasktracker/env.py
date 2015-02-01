@@ -11,14 +11,14 @@ bottle.Request.MAX_PARAMS = 100
 bottle.request.MEMFILE_MAX = 10 * 1024 * 1024
 bottle.request.MAX_PARAMS = 100
 
-import org.wayround.utils.bottle
-import org.wayround.utils.file
-import org.wayround.utils.http
-from org.wayround.utils.list import (
+import wayround_org.utils.bottle
+import wayround_org.utils.file
+import wayround_org.utils.http
+from wayround_org.utils.list import (
     list_strip_remove_empty_remove_duplicated_lines
     )
 
-import org.wayround.softengine.rtenv
+import wayround_org.softengine.rtenv
 
 
 class Session:
@@ -50,9 +50,9 @@ class Environment:
         admin_jid='example@ex.nonexisting'
         ):
 
-        self.ttm = 'org_wayround_tasktracker_modules_TaskTracker'
+        self.ttm = 'wayround_org_tasktracker_modules_TaskTracker'
 
-        self.session_cookie_name = 'org_wayround_tasktracker_session_cookie'
+        self.session_cookie_name = 'wayround_org_tasktracker_session_cookie'
 
         self._bot = None
 
@@ -133,7 +133,7 @@ class Environment:
         self._bot = bot
 
     def start(self):
-        self.server = org.wayround.utils.bottle.WSGIRefServer(
+        self.server = wayround_org.utils.bottle.WSGIRefServer(
             host=self.host, port=self.port
             )
 
@@ -425,7 +425,7 @@ class Environment:
 
         decoded_params = bottle.request.params.decode('utf-8')
 
-        org.wayround.utils.http.convert_cb_params_to_boolean(
+        wayround_org.utils.http.convert_cb_params_to_boolean(
             decoded_params,
             [
             'user_can_register_self',
@@ -621,7 +621,7 @@ class Environment:
 
         decoded_params = bottle.request.params.decode('utf-8')
 
-        org.wayround.utils.http.convert_cb_params_to_boolean(
+        wayround_org.utils.http.convert_cb_params_to_boolean(
             decoded_params,
             [
             'guests_access_allowed'
@@ -713,7 +713,7 @@ class Environment:
 
         decoded_params = bottle.request.params.decode('utf-8')
 
-        org.wayround.utils.http.convert_cb_params_to_boolean(
+        wayround_org.utils.http.convert_cb_params_to_boolean(
             decoded_params,
             [
             'guests_access_allowed'
@@ -1632,7 +1632,7 @@ def install_launcher(path):
     src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'site'))
     dst_dir = path
 
-    org.wayround.utils.file.copytree(
+    wayround_org.utils.file.copytree(
         src_dir,
         dst_dir,
         overwrite_files=True,

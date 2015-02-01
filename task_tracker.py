@@ -5,7 +5,7 @@ import logging
 import os.path
 import sys
 
-import org.wayround.tasktracker.env
+import wayround_org.tasktracker.env
 
 
 def print_help():
@@ -63,7 +63,7 @@ def main():
         else:
             install_path = args[1]
             logging.info("Installing to `{}'".format(install_path))
-            ret = org.wayround.tasktracker.env.install_launcher(install_path)
+            ret = wayround_org.tasktracker.env.install_launcher(install_path)
 
     return ret
 

@@ -3,29 +3,29 @@
 import os.path
 import sys
 
-import org.wayround.utils.program
+import wayround_org.utils.program
 
-import org.wayround.tasktracker.commands
+import wayround_org.tasktracker.commands
 
-import org.wayround.xmpp.core
+import wayround_org.xmpp.core
 
 
-org.wayround.utils.program.logging_setup('info')
+wayround_org.utils.program.logging_setup('info')
 
 wd = os.path.abspath(os.path.dirname(__file__))
 
-jid = org.wayround.xmpp.core.JID(
+jid = wayround_org.xmpp.core.JID(
     user='tasktracker',
     domain='wayround.org',
     resource='home'
     )
 
-connection_info = org.wayround.xmpp.core.C2SConnectionInfo(
+connection_info = wayround_org.xmpp.core.C2SConnectionInfo(
     host='wayround.org',
     port=5222,
     )
 
-auth_info = org.wayround.xmpp.core.Authentication(
+auth_info = wayround_org.xmpp.core.Authentication(
     service='xmpp',
     hostname='wayround.org',
     authid='tasktracker',
@@ -44,10 +44,10 @@ adds['host'] = 'localhost'
 adds['port'] = 8080
 adds['main_admin'] = 'animus@wayround.org'
 
-commands = org.wayround.tasktracker.commands.commands()
+commands = wayround_org.tasktracker.commands.commands()
 
 command_name = os.path.basename(sys.argv[0])
 
-ret = org.wayround.utils.program.program(command_name, commands, adds)
+ret = wayround_org.utils.program.program(command_name, commands, adds)
 
 exit(ret)
