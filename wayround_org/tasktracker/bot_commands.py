@@ -1,18 +1,19 @@
 
-import wayround_org.xmpp.core
+import wayround_org.toxcorebind.tox
 
 
-class JabberCommands:
+class BotCommands:
 
     def __init__(self):
         self._environ = None
+        return
 
     def set_environ(self, environ):
-
         self._environ = environ
+        return
 
     def commands_dict(self):
-        return dict(
+        ret = dict(
             site=dict(
                 register=self.register,
                 login=self.login,
@@ -22,6 +23,7 @@ class JabberCommands:
                 status=self.status
                 )
             )
+        return ret
 
     def status(self, comm, opts, args, adds):
 
@@ -29,15 +31,14 @@ class JabberCommands:
             raise ValueError("use set_environ() method")
 
         ret = 0
-        asker_jid = adds['asker_jid']
+        asker_pkey = adds['asker_pkey']
         messages = adds['messages']
-        ret_stanza = adds['ret_stanza']
 
-        roles = self._environ.get_site_roles_for_jid(asker_jid)
+        roles = self._environ.get_site_roles_for_pkey(asker_pkey)
 
         error = False
 
-        jid_to_know = asker_jid
+        pkey_to_know = asker_pkey
 
         len_args = len(args)
 
@@ -48,15 +49,16 @@ class JabberCommands:
 
             if roles['site_role'] == 'admin':
 
-                jid_to_know = args[0]
+                pkey_to_know = args[0]
+                
 
                 try:
-                    wayround_org.xmpp.core.JID.new_from_str(jid_to_know)
-                except:
+                    wayround_org.toxcorebind.tox.public_key_check(pkey_to_know)
+                except ToxPublicKeyInvalidFormat:
 
                     messages.append(
                         {'type': 'error',
-                         'text': "Invalid JID supplied"
+                         'text': "Invalid PKey supplied"
                          }
                         )
 
@@ -85,18 +87,18 @@ class JabberCommands:
             roles_to_print = roles
 
             if roles['site_role'] == 'admin':
-                roles_to_print = self._environ.get_site_roles_for_jid(
-                    jid_to_know,
+                roles_to_print = self._environ.get_site_roles_for_pkey(
+                    pkey_to_know,
                     all_site_projects=True
                     )
 
-            text = """
-    {jid} site role: {site_role}
+            text = """\
+{pkey} site role: {site_role}
 
-    {jid} project roles:
-    """.format(
+{pkey} project roles:
+""".format(
     site_role=roles_to_print['site_role'],
-    jid=jid_to_know
+    pkey=pkey_to_know
     )
 
             projects = list(roles_to_print['project_roles'].keys())
@@ -111,11 +113,10 @@ class JabberCommands:
 
             text += '\n'
 
-            ret_stanza.body = [
-                wayround_org.xmpp.core.MessageBody(
-                    text=text
-                    )
-                ]
+            messages.append(
+                {'type': 'text',
+                 'text': text}
+                )
 
         return ret
 

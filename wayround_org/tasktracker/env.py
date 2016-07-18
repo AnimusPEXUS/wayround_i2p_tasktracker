@@ -4,16 +4,12 @@ import urllib.parse
 import datetime
 import difflib
 
-import bottle
-
-bottle.Request.MEMFILE_MAX = 10 * 1024 * 1024
-bottle.Request.MAX_PARAMS = 100
-bottle.request.MEMFILE_MAX = 10 * 1024 * 1024
-bottle.request.MAX_PARAMS = 100
-
-import wayround_org.utils.bottle
 import wayround_org.utils.file
 import wayround_org.utils.http
+
+import wayround_org.carafe
+
+
 from wayround_org.utils.list import (
     list_strip_remove_empty_remove_duplicated_lines
     )
@@ -43,12 +39,12 @@ class PageAction:
 class Environment:
 
     def __init__(
-        self,
-        rtenv,
-        host='localhost',
-        port=8080,
-        admin_jid='example@ex.nonexisting'
-        ):
+            self,
+            rtenv,
+            host='localhost',
+            port=8080,
+            admin_pkey=None
+            ):
 
         self.ttm = 'wayround_org_tasktracker_modules_TaskTracker'
 
@@ -56,74 +52,91 @@ class Environment:
 
         self._bot = None
 
-        self.admin_jid = admin_jid
+        self.admin_pkey = admin_pkey
 
         self.rtenv = rtenv
 
         self.host = host
         self.port = port
 
-        self.app = bottle.Bottle()
+        self.router = \
+            wayround_org.carafe.carafe.Router(self.default_router_target)
 
-        self.app.route('/', 'GET', self.index)
+        # self.app = bottle.Bottle()
 
-        self.app.route(
+        self.router.add(
+            'GET',
+            [
+                ('fm', '/', None)
+                ],
+            self.index
+            )
+
+        self.router.add(
+            'GET',
+            [
+                ('fm', '/', None)
+                ],
+            self.index
+            )
+
+        self.router.add(
             '/js/<filename>', 'GET', self.rtenv.modules[self.ttm].js
             )
-        self.app.route(
+        self.router.add(
             '/css/<filename>', 'GET', self.rtenv.modules[self.ttm].css
             )
 
-        self.app.route('/settings', 'GET', self.site_settings)
-        self.app.route('/settings', 'POST', self.site_settings_post)
+        self.router.add('/settings', 'GET', self.site_settings)
+        self.router.add('/settings', 'POST', self.site_settings_post)
 
-        self.app.route('/roles', 'GET', self.site_roles)
-        self.app.route('/roles', 'POST', self.site_roles_post)
+        self.router.add('/roles', 'GET', self.site_roles)
+        self.router.add('/roles', 'POST', self.site_roles_post)
 
-        self.app.route('/logout', 'GET', self.logout)
+        self.router.add('/logout', 'GET', self.logout)
 
-        self.app.route('/new_project', 'GET', self.new_project)
-        self.app.route('/new_project', 'POST', self.new_project_post)
+        self.router.add('/new_project', 'GET', self.new_project)
+        self.router.add('/new_project', 'POST', self.new_project_post)
 
-        self.app.route('/project/<project_name>', 'GET', self.project_view)
-        self.app.route('/project/<project_name>/',
-            'GET', self.redirect_to_project_view
-            )
+        self.router.add('/project/<project_name>', 'GET', self.project_view)
+        self.router.add('/project/<project_name>/',
+                       'GET', self.redirect_to_project_view
+                       )
 
-        self.app.route(
+        self.router.add(
             '/project/<project_name>/issues', 'GET', self.project_issues
             )
 
-        self.app.route(
+        self.router.add(
             '/project/<project_name>/activities', 'GET',
             self.project_activities
             )
 
-        self.app.route(
+        self.router.add(
             '/project/<project_name>/settings', 'GET', self.edit_project
             )
-        self.app.route(
+        self.router.add(
             '/project/<project_name>/settings', 'POST', self.edit_project_post
             )
 
-        self.app.route(
+        self.router.add(
             '/project/<project_name>/roles', 'GET', self.project_roles
             )
-        self.app.route(
+        self.router.add(
             '/project/<project_name>/roles', 'POST', self.project_roles_post
             )
 
-        self.app.route(
+        self.router.add(
             '/project/<project_name>/new_issue', 'GET', self.new_issue
             )
-        self.app.route(
+        self.router.add(
             '/project/<project_name>/new_issue', 'POST', self.new_issue_post
             )
 
-        self.app.route(
+        self.router.add(
             '/project/<project_name>/<issue_id:int>', 'GET', self.view_issue
             )
-        self.app.route(
+        self.router.add(
             '/project/<project_name>/<issue_id:int>', 'POST',
             self.edit_issue_post
             )
@@ -148,12 +161,12 @@ class Environment:
         self.server.srv.shutdown()
 
     def get_page_actions(
-        self,
-        mode=None,
-        rts_object=None,
-        project_name=None,
-        issue_id=None
-        ):
+            self,
+            mode=None,
+            rts_object=None,
+            project_name=None,
+            issue_id=None
+            ):
 
         if not isinstance(rts_object, Session):
             raise TypeError("rts_object must be a Session object")
@@ -248,7 +261,6 @@ class Environment:
         return ret
 
     def generate_rts_object(self):
-
         """
         rts - run time session
         """
@@ -315,7 +327,7 @@ class Environment:
         else:
             site_role = self.rtenv.modules[self.ttm].get_site_role(jid)
 
-            if site_role == None:
+            if site_role is None:
                 ret['site_role'] = 'guest'
             else:
                 if not site_role.role in ['admin', 'user', 'blocked']:
@@ -417,9 +429,9 @@ class Environment:
         self.site_settings_access_check(rts)
 
         for i in [
-            'site_title',
-            'site_description',
-            ]:
+                'site_title',
+                'site_description',
+                ]:
             if not i in bottle.request.params:
                 raise KeyError("parameter `{}' must be passed".format(i))
 
@@ -428,8 +440,8 @@ class Environment:
         wayround_org.utils.http.convert_cb_params_to_boolean(
             decoded_params,
             [
-            'user_can_register_self',
-            'user_can_create_projects'
+                'user_can_register_self',
+                'user_can_create_projects'
             ]
             )
 
@@ -519,11 +531,11 @@ class Environment:
         self.site_roles_access_check(rts)
 
         for i in [
-            'admins',
-            'moders',
-            'users',
-            'blocked'
-            ]:
+                'admins',
+                'moders',
+                'users',
+                'blocked'
+                ]:
             if not i in bottle.request.params:
                 raise KeyError("parameter `{}' must be passed".format(i))
 
@@ -577,11 +589,11 @@ class Environment:
     def new_project_access_check(self, rts):
 
         if (rts.site_role != 'admin' and
-            self.rtenv.modules[self.ttm].get_site_setting(
-                'user_can_create_projects',
-                False
-                ) != '1'
-            ):
+                self.rtenv.modules[self.ttm].get_site_setting(
+                    'user_can_create_projects',
+                            False
+                    ) != '1'
+                ):
             raise bottle.HTTPError(403, "Not Allowed")
 
         return
@@ -624,7 +636,7 @@ class Environment:
         wayround_org.utils.http.convert_cb_params_to_boolean(
             decoded_params,
             [
-            'guests_access_allowed'
+                'guests_access_allowed'
             ]
             )
 
@@ -658,7 +670,7 @@ class Environment:
             allowed = True
 
         if project_record.name in rts.project_roles \
-            and rts.project_roles[project_record.name] == 'admin':
+                and rts.project_roles[project_record.name] == 'admin':
             allowed = True
 
         if not allowed:
@@ -716,7 +728,7 @@ class Environment:
         wayround_org.utils.http.convert_cb_params_to_boolean(
             decoded_params,
             [
-            'guests_access_allowed'
+                'guests_access_allowed'
             ]
             )
 
@@ -843,11 +855,11 @@ class Environment:
         self.project_roles_access_check(rts)
 
         for i in [
-            'admins',
-            'moders',
-            'users',
-            'blocked'
-            ]:
+                'admins',
+                'moders',
+                'users',
+                'blocked'
+                ]:
             if not i in bottle.request.params:
                 raise KeyError("parameter `{}' must be passed".format(i))
 
@@ -916,9 +928,9 @@ class Environment:
         role = self.rtenv.modules[self.ttm].get_site_role(jid)
 
         if role or not self.rtenv.modules[self.ttm].get_site_setting(
-            'user_can_register_self',
-            False
-            ):
+                'user_can_register_self',
+                False
+                ):
 
             ret = False
 
@@ -1040,7 +1052,7 @@ class Environment:
             decoded_params['status'] = 'open'
 
         if (not decoded_params['status']
-            in self.rtenv.modules[self.ttm].statuses):
+                in self.rtenv.modules[self.ttm].statuses):
             raise bottle.HTTPError(400, body="invalid status")
 
         try:
@@ -1197,15 +1209,15 @@ class Environment:
         self.new_issue_access_check(rts, p)
 
         for i in [
-            'title',
-            'priority',
-            'status',
-            'resolution',
-            'description',
-            'assigned_to',
-            'watchers',
-            'submit_type'
-            ]:
+                'title',
+                'priority',
+                'status',
+                'resolution',
+                'description',
+                'assigned_to',
+                'watchers',
+                'submit_type'
+                ]:
             if not i in bottle.request.params:
                 print("MEMFILE_MAX {}".format(bottle.request.MEMFILE_MAX))
                 raise KeyError("parameter `{}' must be passed".format(i))
@@ -1372,9 +1384,9 @@ class Environment:
         assigned_to_text,
         watchers_text,
 
-        comment,
-        date
-        ):
+            comment,
+            date
+            ):
 
         _t = list_strip_remove_empty_remove_duplicated_lines(
             assigned_to_text.splitlines()
@@ -1447,16 +1459,16 @@ class Environment:
         if bottle.request.params['submit_type'] == 'issue_edit':
 
             for i in [
-                'issue_id',
-                'title',
-                'priority',
-                'status',
-                'resolution',
-                'description',
-                'assigned_to',
-                'watchers',
-                'comment',
-                ]:
+                    'issue_id',
+                    'title',
+                    'priority',
+                    'status',
+                    'resolution',
+                    'description',
+                    'assigned_to',
+                    'watchers',
+                    'comment',
+                    ]:
                 if not i in bottle.request.params:
                     raise KeyError("parameter `{}' must be passed".format(i))
 
@@ -1542,8 +1554,8 @@ class Environment:
         elif bottle.request.params['submit_type'] == 'relations_edit':
 
             for i in [
-                'issue_id'
-                ]:
+                    'issue_id'
+                    ]:
                 if not i in bottle.request.params:
                     raise KeyError("parameter `{}' must be passed".format(i))
 
@@ -1578,8 +1590,8 @@ class Environment:
                     )
 
                 for i in range(
-                    len(decoded_params.dict.get('relation_type[]', []))
-                    ):
+                        len(decoded_params.dict.get('relation_type[]', []))
+                        ):
 
                     rti = decoded_params.dict['relation_target_id[]'][i]
                     try:

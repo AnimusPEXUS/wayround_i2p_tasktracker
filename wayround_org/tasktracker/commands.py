@@ -5,17 +5,19 @@ import threading
 import wayround_org.softengine.rtenv
 import wayround_org.tasktracker.jabber_commands
 import wayround_org.tasktracker.modules
-import wayround_org.xmpp.client_bot
-import wayround_org.xmpp.core
+import wayround_org.toxcorebot.bot
 
 
 def commands():
     return dict(
-        start=site_start
+        run=site_run
         )
 
 
-def site_start(comm, opts, args, adds):
+def site_run(comm, opts, args, adds):
+    """
+    Start and continue running service - no background separation.
+    """
 
     ret = 0
 
@@ -24,10 +26,6 @@ def site_start(comm, opts, args, adds):
     host = adds['host']
     port = adds['port']
     main_admin = adds['main_admin']
-
-    jid = adds['jid']
-    xmpp_connection_info = adds['xmpp_connection_info']
-    xmpp_auth_info = adds['xmpp_auth_info']
 
     db = wayround_org.softengine.rtenv.DB_SQLAlchemy(
         db_config,
@@ -46,7 +44,7 @@ def site_start(comm, opts, args, adds):
 
     rtenv.db.create_all()
 
-    commands = wayround_org.tasktracker.jabber_commands.JabberCommands()
+    bot_commands = wayround_org.tasktracker.bot_commands.BotCommands()
 
     bot = wayround_org.xmpp.client_bot.Bot()
 
@@ -62,15 +60,14 @@ def site_start(comm, opts, args, adds):
         target=environ.start
         ).start()
 
-    commands.set_environ(environ)
+    bot_commands.set_environ(environ)
 
-    bot.set_commands(commands.commands_dict())
+    bot.set_commands(bot_commands.commands_dict())
     environ.set_bot(bot)
 
     threading.Thread(
         name="Bot Thread",
-        target=bot.connect,
-        args=(jid, xmpp_connection_info, xmpp_auth_info,),
+        target=bot.start
         ).start()
 
     try:
