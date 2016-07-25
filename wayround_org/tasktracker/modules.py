@@ -4,7 +4,6 @@ import hashlib
 import os.path
 import random
 
-import bottle
 from mako.template import Template
 import sqlalchemy
 import sqlalchemy.orm.exc
@@ -84,7 +83,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
                 autoincrement=True
                 )
 
-            jid = sqlalchemy.Column(
+            pkey = sqlalchemy.Column(
                 sqlalchemy.UnicodeText,
                 nullable=True,
                 default=None
@@ -215,7 +214,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
                 default=0
                 )
 
-            author_jid = sqlalchemy.Column(
+            author_pkey = sqlalchemy.Column(
                 sqlalchemy.UnicodeText,
                 nullable=True,
                 default=None
@@ -303,7 +302,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
 
             __tablename__ = self.module_name + '_SiteRoles'
 
-            jid = sqlalchemy.Column(
+            pkey = sqlalchemy.Column(
                 sqlalchemy.UnicodeText,
                 primary_key=True,
                 nullable=True,
@@ -326,7 +325,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
                 autoincrement=True
                 )
 
-            jid = sqlalchemy.Column(
+            pkey = sqlalchemy.Column(
                 sqlalchemy.UnicodeText,
                 nullable=True,
                 default=None
@@ -354,7 +353,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
                 autoincrement=True
                 )
 
-            jid = sqlalchemy.Column(
+            pkey = sqlalchemy.Column(
                 sqlalchemy.UnicodeText,
                 nullable=True,
                 default=None
@@ -552,7 +551,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
                     watchers_diff=i.watchers_diff,
                     comment=i.comment,
                     date=i.date,
-                    author_jid=i.author_jid
+                    author_pkey=i.author_pkey
                     )
                 )
 
@@ -579,7 +578,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             watchers_diff='',
             comment='',
             date='',
-            author_jid=''
+            author_pkey=''
             ):
 
         return self.rtenv.templates[self.module_name]['project_activity_row'].render(
@@ -599,7 +598,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             watchers_diff=watchers_diff,
             comment=comment,
             date=date,
-            jid=author_jid
+            pkey=author_pkey
             )
 
     def site_roles_tpl(
@@ -696,7 +695,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             if len(issue_roles) == 0:
                 assigned = 'No one'
             elif len(issue_roles) == 1:
-                assigned = issue_roles[0].jid
+                assigned = issue_roles[0].pkey
             else:
                 assigned = "{} people".format(len(issue_roles))
 
@@ -883,7 +882,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             watchers_diff='',
             comment='',
             date='',
-            author_jid=''
+            author_pkey=''
             ):
 
         return self.rtenv.templates[self.module_name]['issue_update_row'].render(
@@ -900,7 +899,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             watchers_diff=watchers_diff,
             comment=comment,
             date=date,
-            jid=author_jid
+            pkey=author_pkey
             )
 
     def issue_update_table_tpl(self, issue_updates):
@@ -923,7 +922,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
                     watchers_diff=i.watchers_diff,
                     comment=i.comment,
                     date=i.date,
-                    author_jid=i.author_jid
+                    author_pkey=i.author_pkey
                     )
                 )
 
@@ -962,7 +961,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
 
     def _get_session_by_x(self, data, what):
 
-        if not what in ['jid', 'cookie']:
+        if not what in ['pkey', 'cookie']:
             raise ValueError("Wrong `what' parameter")
 
         self.cleanup_sessions()
@@ -975,10 +974,10 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
                     self.rtenv.models[self.module_name]['Session']
                     ).filter_by(session_cookie=data).one()
 
-            if what == 'jid':
+            if what == 'pkey':
                 ret = self.rtenv.db.sess.query(
                     self.rtenv.models[self.module_name]['Session']
-                    ).filter_by(jid=data).one()
+                    ).filter_by(pkey=data).one()
 
         except sqlalchemy.orm.exc.NoResultFound:
             pass
@@ -992,8 +991,8 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
     def get_session_by_cookie(self, cookie):
         return self._get_session_by_x(cookie, 'cookie')
 
-    def get_session_by_jid(self, jid):
-        return self._get_session_by_x(jid, 'jid')
+    def get_session_by_pkey(self, pkey):
+        return self._get_session_by_x(pkey, 'pkey')
 
     def new_session(self):
 
@@ -1037,17 +1036,17 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
 
         return
 
-    def assign_jid_to_session(self, session, jid):
+    def assign_pkey_to_session(self, session, pkey):
 
         sessions = self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['Session']
             ).all()
 
         for i in sessions:
-            if i.jid == jid:
+            if i.pkey == pkey:
                 self.rtenv.db.sess.delete(i)
 
-        session.jid = jid
+        session.pkey = pkey
 
         self.rtenv.db.sess.commit()
 
@@ -1277,7 +1276,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             roles[i] = []
 
             for j in t:
-                roles[i].append(j.jid)
+                roles[i].append(j.pkey)
 
             roles[i].sort()
 
@@ -1311,20 +1310,20 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
                     ).filter_by(issue_id=issue_id, role=i).all()
 
                 for j in t:
-                    if j.jid not in roles[i]:
+                    if j.pkey not in roles[i]:
                         self.rtenv.db.sess.delete(j)
 
                 for j in roles[i]:
                     h_found = False
 
                     for k in t:
-                        if k.jid == j:
+                        if k.pkey == j:
                             h_found = True
                             break
 
                     if not h_found:
                         new_role = self.rtenv.models[self.module_name]['IssueRole']()
-                        new_role.jid = j
+                        new_role.pkey = j
                         new_role.role = i
                         new_role.issue_id = issue_id
                         self.rtenv.db.sess.add(new_role)
@@ -1337,7 +1336,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         self,
         project_name,
         issue_id,
-        author_jid,
+        author_pkey,
         title_old,
         title,
         priority_old,
@@ -1357,7 +1356,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
 
         issueup.project_name = project_name
         issueup.issue_id = issue_id
-        issueup.author_jid = author_jid
+        issueup.author_pkey = author_pkey
         issueup.title_old = title_old
         issueup.title = title
         issueup.priority_old = priority_old
@@ -1401,7 +1400,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
                     self.rtenv.models[self.module_name]['IssueUpdate'].date.desc()
                     ).slice(start, stop).all()
 
-    def get_site_role(self, jid):
+    def get_site_role(self, pkey):
 
         ret = None
 
@@ -1410,7 +1409,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         try:
             res = self.rtenv.db.sess.query(
                 self.rtenv.models[self.module_name]['SiteRole']
-                ).filter_by(jid=jid).one()
+                ).filter_by(pkey=pkey).one()
         except sqlalchemy.orm.exc.NoResultFound:
             pass
         else:
@@ -1451,7 +1450,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         res = self.get_site_roles()
 
         for i in res:
-            ret[i.jid] = i.role
+            ret[i.pkey] = i.role
 
         return ret
 
@@ -1460,7 +1459,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         old_roles = self.get_site_roles()
 
         for i in old_roles:
-            if not i.jid in roles.keys():
+            if not i.pkey in roles.keys():
                 self.rtenv.db.sess.delete(i)
 
         for i in roles.keys():
@@ -1469,7 +1468,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
 
             for j in old_roles:
 
-                if j.jid == i:
+                if j.pkey == i:
                     role_found = j
                     break
 
@@ -1477,7 +1476,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
 
                 role = self.rtenv.models[self.module_name]['SiteRole']()
 
-                role.jid = i
+                role.pkey = i
                 role.role = roles[i]
 
                 self.rtenv.db.sess.add(role)
@@ -1492,11 +1491,11 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
 
         return
 
-    def add_site_role(self, jid, role='user'):
+    def add_site_role(self, pkey, role='user'):
 
         siterole = self.rtenv.models[self.module_name]['SiteRole']()
 
-        siterole.jid = jid
+        siterole.pkey = pkey
         siterole.role = role
 
         self.rtenv.db.sess.add(siterole)
@@ -1505,30 +1504,30 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
 
         return
 
-    def get_project_role(self, jid, project_name):
+    def get_project_role(self, pkey, project_name):
 
         ret = None
 
         try:
             ret = self.rtenv.db.sess.query(
                 self.rtenv.models[self.module_name]['ProjectRole']
-                ).filter_by(jid=jid, project_name=project_name).one()
+                ).filter_by(pkey=pkey, project_name=project_name).one()
         except sqlalchemy.orm.exc.NoResultFound:
             pass
 
         return ret
 
-    def get_project_roles_of_jid(self, jid):
+    def get_project_roles_of_pkey(self, pkey):
 
         ret = self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['ProjectRole']
-            ).filter_by(jid=jid).all()
+            ).filter_by(pkey=pkey).all()
 
         return ret
 
-    def get_project_roles_of_jid_dict(self, jid):
+    def get_project_roles_of_pkey_dict(self, pkey):
 
-        roles = self.get_project_roles_of_jid(jid)
+        roles = self.get_project_roles_of_pkey(pkey)
 
         ret = {}
 
@@ -1562,7 +1561,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         ret = {}
 
         for i in roles:
-            ret[i.jid] = i.role
+            ret[i.pkey] = i.role
 
         return ret
 
@@ -1571,7 +1570,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         old_roles = self.get_project_roles(project_name)
 
         for i in old_roles:
-            if not i.jid in roles.keys():
+            if not i.pkey in roles.keys():
                 self.rtenv.db.sess.delete(i)
 
         for i in roles.keys():
@@ -1580,7 +1579,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
 
             for j in old_roles:
 
-                if j.jid == i:
+                if j.pkey == i:
                     role_found = j
                     break
 
@@ -1588,7 +1587,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
 
                 role = self.rtenv.models[self.module_name]['ProjectRole']()
 
-                role.jid = i
+                role.pkey = i
                 role.role = roles[i]
                 role.project_name = project_name
 

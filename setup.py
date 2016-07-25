@@ -1,8 +1,5 @@
 #!/usr/bin/python3
 
-import os.path
-import wayround_org.utils.path
-
 from setuptools import setup
 
 setup(

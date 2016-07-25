@@ -1,70 +1,16 @@
-#!python3.3
-
-import getopt
-import logging
-import os.path
-import sys
-
-import wayround_org.tasktracker.env
+#!/usr/bin/python3
 
 
-def print_help():
-    print("""
-usage: {} path
+import wayround_org.utils.program
+
+import wayround_org.tasktracker.commands
 
 
-Make new tracker
-""".format(os.path.basename(__file__)))
+main = wayround_org.utils.program.MainScript(
+    wayround_org.tasktracker.commands,
+    'wro-tasktracker',
+    'INFO'
+    ).main
 
-
-def main():
-
-    for i in [
-        (logging.CRITICAL, '-c-'),
-        (logging.ERROR   , '-e-'),
-        (logging.WARN    , '-w-'),
-        (logging.WARNING , '-w-'),
-        (logging.INFO    , '-i-'),
-        (logging.DEBUG   , '-d-')
-        ]:
-        logging.addLevelName(i[0], i[1])
-    del i
-
-    ret = 0
-
-    opts, args = getopt.gnu_getopt(
-        sys.argv, '', longopts=['help', 'version', 'verbose']
-        )
-
-    opts_d = dict(opts)
-
-    log_level = 'warning'
-    if '--verbose' in opts_d:
-        log_level = 'info'
-
-    log_level = log_level.upper()
-
-    logging.basicConfig(
-        format="%(levelname)s %(message)s",
-        level=log_level
-        )
-
-    if '--help' in opts_d:
-        print_help()
-
-    elif '--version' in opts_d:
-        print("1")
-
-    else:
-
-        if len(args) != 2:
-            logging.error("Path not supplied")
-            ret = 1
-        else:
-            install_path = args[1]
-            logging.info("Installing to `{}'".format(install_path))
-            ret = wayround_org.tasktracker.env.install_launcher(install_path)
-
-    return ret
-
-exit(main())
+if __name__ == '__main__':
+    exit(main())

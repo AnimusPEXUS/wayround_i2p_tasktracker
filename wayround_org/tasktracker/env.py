@@ -7,7 +7,8 @@ import difflib
 import wayround_org.utils.file
 import wayround_org.utils.http
 
-import wayround_org.carafe
+import wayround_org.carafe.carafe
+import wayround_org.wsgi.server
 
 
 from wayround_org.utils.list import (
@@ -16,24 +17,26 @@ from wayround_org.utils.list import (
 
 import wayround_org.softengine.rtenv
 
+MIME_HTML = wayround_org.carafe.carafe.MIME_HTML
+
 
 class Session:
 
     def __init__(self):
-
         self.id = None
-        self.jid = None
+        self.pkey = None
         self.site_role = None
         self.project_roles = {}
         self.session_valid_till = None
+        return
 
 
 class PageAction:
 
     def __init__(self, title, href):
-
         self.title = title
         self.href = href
+        return
 
 
 class Environment:
@@ -56,109 +59,251 @@ class Environment:
 
         self.rtenv = rtenv
 
-        self.host = host
-        self.port = port
+        # self.host = host
+        # self.port = port
+
+        self.carafe_app = \
+            wayround_org.carafe.carafe.Carafe(self.router_entry)
+
+        self.wsgi_server = \
+            wayround_org.wsgi.server.CompleteServer(
+                self.carafe_app.target_for_wsgi_server,
+                address=(host, port)
+                )
 
         self.router = \
             wayround_org.carafe.carafe.Router(self.default_router_target)
 
-        # self.app = bottle.Bottle()
+        self.router.add(
+            'GET',
+            [],
+            self.index
+            )  # this rule is for empty path or foe root dir. not tested
+        # probably invalid
 
         self.router.add(
             'GET',
             [
-                ('fm', '/', None)
+                ('=', 'js'),
+                ('fm', '*', 'filename')
                 ],
-            self.index
+            self.rtenv.modules[self.ttm].js
             )
 
         self.router.add(
             'GET',
             [
-                ('fm', '/', None)
+                ('=', 'css'),
+                ('fm', '*', 'filename')
                 ],
-            self.index
+            self.rtenv.modules[self.ttm].css
             )
 
         self.router.add(
-            '/js/<filename>', 'GET', self.rtenv.modules[self.ttm].js
-            )
-        self.router.add(
-            '/css/<filename>', 'GET', self.rtenv.modules[self.ttm].css
-            )
-
-        self.router.add('/settings', 'GET', self.site_settings)
-        self.router.add('/settings', 'POST', self.site_settings_post)
-
-        self.router.add('/roles', 'GET', self.site_roles)
-        self.router.add('/roles', 'POST', self.site_roles_post)
-
-        self.router.add('/logout', 'GET', self.logout)
-
-        self.router.add('/new_project', 'GET', self.new_project)
-        self.router.add('/new_project', 'POST', self.new_project_post)
-
-        self.router.add('/project/<project_name>', 'GET', self.project_view)
-        self.router.add('/project/<project_name>/',
-                       'GET', self.redirect_to_project_view
-                       )
-
-        self.router.add(
-            '/project/<project_name>/issues', 'GET', self.project_issues
+            'GET',
+            [
+                ('=', 'settings')
+                ],
+            self.site_settings
             )
 
         self.router.add(
-            '/project/<project_name>/activities', 'GET',
+            'POST',
+            [
+                ('=', 'settings')
+                ],
+            self.site_settings_post
+            )
+
+        self.router.add(
+            'GET',
+            [
+                ('=', 'roles')
+                ],
+            self.site_roles
+            )
+
+        self.router.add(
+            'POST',
+            [
+                ('=', 'roles')
+                ],
+            self.site_roles_post
+            )
+
+        self.router.add(
+            'GET',
+            [
+                ('=', 'logout')
+                ],
+            self.logout
+            )
+
+        self.router.add(
+            'GET',
+            [
+                ('=', 'new_project')
+                ],
+            self.new_project
+            )
+
+        self.router.add(
+            'POST',
+            [
+                ('=', 'new_project')
+                ],
+            self.new_project_post
+            )
+
+        self.router.add(
+            'GET',
+            [
+                ('=', 'project'),
+                ('fm', '*', 'project_name')
+                ],
+            self.project_view
+            )
+
+        self.router.add(
+            'GET',
+            [
+                ('=', 'project'),
+                ('fm', '*', 'project_name'),
+                ('=', 'issues')
+                ],
+            self.project_issues
+            )
+
+        self.router.add(
+            'GET',
+            [
+                ('=', 'project'),
+                ('fm', '*', 'project_name'),
+                ('=', 'activities')
+                ],
             self.project_activities
             )
 
         self.router.add(
-            '/project/<project_name>/settings', 'GET', self.edit_project
-            )
-        self.router.add(
-            '/project/<project_name>/settings', 'POST', self.edit_project_post
-            )
-
-        self.router.add(
-            '/project/<project_name>/roles', 'GET', self.project_roles
-            )
-        self.router.add(
-            '/project/<project_name>/roles', 'POST', self.project_roles_post
+            'GET',
+            [
+                ('=', 'project'),
+                ('fm', '*', 'project_name'),
+                ('=', 'settings')
+                ],
+            self.edit_project
             )
 
         self.router.add(
-            '/project/<project_name>/new_issue', 'GET', self.new_issue
-            )
-        self.router.add(
-            '/project/<project_name>/new_issue', 'POST', self.new_issue_post
+            'POST',
+            [
+                ('=', 'project'),
+                ('fm', '*', 'project_name'),
+                ('=', 'settings')
+                ],
+            self.edit_project_post
             )
 
         self.router.add(
-            '/project/<project_name>/<issue_id:int>', 'GET', self.view_issue
+            'GET',
+            [
+                ('=', 'project'),
+                ('fm', '*', 'project_name'),
+                ('=', 'roles')
+                ],
+            self.project_roles
             )
+
         self.router.add(
-            '/project/<project_name>/<issue_id:int>', 'POST',
+            'POST',
+            [
+                ('=', 'project'),
+                ('fm', '*', 'project_name'),
+                ('=', 'roles')
+                ],
+            self.project_roles_post
+            )
+
+        self.router.add(
+            'GET',
+            [
+                ('=', 'project'),
+                ('fm', '*', 'project_name'),
+                ('=', 'new_issue')
+                ],
+            self.new_issue
+            )
+
+        self.router.add(
+            'POST',
+            [
+                ('=', 'project'),
+                ('fm', '*', 'project_name'),
+                ('=', 'new_issue')
+                ],
+            self.new_issue_post
+            )
+
+        self.router.add(
+            'GET',
+            [
+                ('=', 'project'),
+                ('fm', '*', 'project_name'),
+                ('re', '\d+')
+                ],
+            self.view_issue
+            )
+
+        self.router.add(
+            'POST',
+            [
+                ('=', 'project'),
+                ('fm', '*', 'project_name'),
+                ('re', '\d+')
+                ],
             self.edit_issue_post
             )
+        return
 
     def set_bot(self, bot):
-
         self._bot = bot
+        return
+
+    def router_entry(self, wsgi_environment, response_start):
+        return self.router.wsgi_server_target(wsgi_environment, response_start)
 
     def start(self):
+        self.wsgi_server.start()
+        '''
         self.server = wayround_org.utils.bottle.WSGIRefServer(
             host=self.host, port=self.port
             )
 
-        return bottle.run(
+        ret = bottle.run(
             self.app,
             host=self.host,
             port=self.port,
             server=self.server
             )
+        '''
+        return
 
     def stop(self):
-        self.server.srv.shutdown()
+        self.wsgi_server.stop()
+        return
+
+    def default_router_target(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
+        response_start(
+            '404',
+            [('Content-Type', 'text/plain; charset=UTF-8')]
+            )
+        ret = '404: not found'
+        return ret
 
     def get_page_actions(
             self,
@@ -292,17 +437,17 @@ class Environment:
 
         ret = Session()
         ret.id = s.session_cookie
-        ret.jid = s.jid
+        ret.pkey = s.pkey
         ret.session_valid_till = s.session_valid_till
 
-        roles = self.get_site_roles_for_jid(s.jid)
+        roles = self.get_site_roles_for_pkey(s.pkey)
 
         ret.project_roles = roles['project_roles']
         ret.site_role = roles['site_role']
 
         return ret
 
-    def get_site_roles_for_jid(self, jid=None, all_site_projects=False):
+    def get_site_roles_for_pkey(self, pkey=None, all_site_projects=False):
 
         ret = {}
 
@@ -315,17 +460,17 @@ class Environment:
                 ret['project_roles'][i.name] = 'guest'
 
         ret['project_roles'].update(
-            self.rtenv.modules[self.ttm].get_project_roles_of_jid_dict(
-                jid
+            self.rtenv.modules[self.ttm].get_project_roles_of_pkey_dict(
+                pkey
                 )
             )
 
         ret['site_role'] = 'guest'
 
-        if jid == self.admin_jid:
+        if pkey == self.admin_pkey:
             ret['site_role'] = 'admin'
         else:
-            site_role = self.rtenv.modules[self.ttm].get_site_role(jid)
+            site_role = self.rtenv.modules[self.ttm].get_site_role(pkey)
 
             if site_role is None:
                 ret['site_role'] = 'guest'
@@ -341,7 +486,12 @@ class Environment:
 
         return ret
 
-    def index(self):
+    def index(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
 
         rts = self.generate_rts_object()
 
@@ -365,6 +515,8 @@ class Environment:
             actions=actions,
             body=project_list
             )
+
+        response_start(200, [('Content-Type', MIME_HTML)])
 
         return ret
 
@@ -591,9 +743,9 @@ class Environment:
         if (rts.site_role != 'admin' and
                 self.rtenv.modules[self.ttm].get_site_setting(
                     'user_can_create_projects',
-                            False
+                    False
                     ) != '1'
-                ):
+            ):
             raise bottle.HTTPError(403, "Not Allowed")
 
         return
@@ -837,7 +989,7 @@ class Environment:
             site_moders='\n'.join(site_moders),
             site_users='\n'.join(site_users),
             site_blocked='\n'.join(site_blocked),
-            god=self.admin_jid
+            god=self.admin_pkey
             )
 
         ret = self.rtenv.modules[self.ttm].html_tpl(
@@ -910,22 +1062,22 @@ class Environment:
 
         return
 
-    def login_access_check(self, jid):
+    def login_access_check(self, pkey):
 
         ret = True
 
-        role = self.rtenv.modules[self.ttm].get_site_role(jid)
+        role = self.rtenv.modules[self.ttm].get_site_role(pkey)
 
         if not role or role.role == 'blocked':
             ret = False
 
         return ret
 
-    def register_access_check(self, jid):
+    def register_access_check(self, pkey):
 
         ret = True
 
-        role = self.rtenv.modules[self.ttm].get_site_role(jid)
+        role = self.rtenv.modules[self.ttm].get_site_role(pkey)
 
         if role or not self.rtenv.modules[self.ttm].get_site_setting(
                 'user_can_register_self',
@@ -1247,7 +1399,7 @@ class Environment:
             rts,
             issue.project_name,
             issue.issue_id,
-            author_jid=rts.jid,
+            author_pkey=rts.pkey,
             title_old='',
             title=decoded_params['title'],
             priority_old='',
@@ -1367,7 +1519,7 @@ class Environment:
         rts,
         project_name,
         issue_id,
-        author_jid,
+        author_pkey,
         title_old,
         title,
         priority_old,
@@ -1429,7 +1581,7 @@ class Environment:
         self.rtenv.modules[self.ttm].make_issue_update(
             project_name=project_name,
             issue_id=issue_id,
-            author_jid=author_jid,
+            author_pkey=author_pkey,
             title_old=title_old,
             title=title,
             priority_old=priority_old,
@@ -1504,7 +1656,7 @@ class Environment:
                     rts,
                     issue.project_name,
                     issue.issue_id,
-                    author_jid=rts.jid,
+                    author_pkey=rts.pkey,
                     title_old=issue.title,
                     title=decoded_params['title'],
                     priority_old=issue.priority,
