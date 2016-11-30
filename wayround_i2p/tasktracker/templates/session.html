@@ -1,0 +1,18 @@
+<%
+title = "Session Cookie: {}; Valid Till: {}".format(
+    rts_object.session_cookie,
+    rts_object.session_valid_till
+    )
+%><div>
+
+    % if rts_object.pkey:
+    <div>
+        <strong title="${ title | x }">${ rts_object.pkey | x }</strong> <a href="/logout">Logout</a>
+    </div>
+    % else:
+    <div>
+        <strong title="${ title | x }">Guest: You'r cookie is ${ rts_object.session_cookie | x }</strong>
+    </div>
+    % endif
+
+</div>

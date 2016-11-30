@@ -1,5 +1,5 @@
 
-import wayround_org.toxcorebind.tox
+import wayround_i2p.toxcorebind.tox
 
 
 class BotCommands:
@@ -53,7 +53,7 @@ class BotCommands:
                 
 
                 try:
-                    wayround_org.toxcorebind.tox.public_key_check(pkey_to_know)
+                    wayround_i2p.toxcorebind.tox.public_key_check(pkey_to_know)
                 except ToxPublicKeyInvalidFormat:
 
                     messages.append(
@@ -126,29 +126,29 @@ class BotCommands:
             raise ValueError("use set_environ() method")
 
         ret = 0
-        asker_jid = adds['asker_jid']
+        asker_pkey = adds['asker_pkey']
         messages = adds['messages']
 
-        roles = self._environ.get_site_roles_for_jid(asker_jid)
+        roles = self._environ.get_site_roles_for_pkey(asker_pkey)
 
         error = False
 
         role = 'user'
-        jid_to_reg = asker_jid
+        pkey_to_reg = asker_pkey
 
         if roles['site_role'] == 'admin':
             if '-r' in opts:
                 role = opts['-r']
 
             if len(args) == 1:
-                jid_to_reg = args[0]
+                pkey_to_reg = args[0]
 
                 try:
-                    wayround_org.xmpp.core.JID.new_from_str(jid_to_reg)
+                    wayround_i2p.xmpp.core.pkey.new_from_str(pkey_to_reg)
                 except:
                     messages.append(
                         {'type': 'error',
-                         'text': "Can't parse supplied JID"}
+                         'text': "Can't parse supplied pkey"}
                         )
                     error = True
 
@@ -174,10 +174,10 @@ class BotCommands:
             registrant_role = self._environ.rtenv.modules[
                 self._environ.ttm
                 ].get_site_role(
-                jid_to_reg
+                pkey_to_reg
                 )
 
-            if (asker_jid == jid_to_reg
+            if (asker_pkey == pkey_to_reg
                 and roles['site_role'] != 'guest'):
 
                 messages.append(
@@ -190,7 +190,7 @@ class BotCommands:
                 messages.append(
                     {'type': 'error',
                      'text': '{} already have role: {}'.format(
-                        jid_to_reg,
+                        pkey_to_reg,
                         registrant_role.role
                         )
                      }
@@ -200,11 +200,11 @@ class BotCommands:
 
                 if ((roles['site_role'] == 'admin') or
                     (roles['site_role'] != 'admin' and
-                     self._environ.register_access_check(asker_jid))):
+                     self._environ.register_access_check(asker_pkey))):
 
                     try:
                         self._environ.rtenv.modules[self._environ.ttm].add_site_role(
-                            jid_to_reg,
+                            pkey_to_reg,
                             role
                             )
                     except:
@@ -231,10 +231,10 @@ class BotCommands:
             raise ValueError("use set_environ() method")
 
         ret = 0
-        asker_jid = adds['asker_jid']
+        asker_pkey = adds['asker_pkey']
         messages = adds['messages']
 
-        roles = self._environ.get_site_roles_for_jid(asker_jid)
+        roles = self._environ.get_site_roles_for_pkey(asker_pkey)
 
         cookie = None
 
@@ -276,12 +276,12 @@ class BotCommands:
 
                     if ((roles['site_role'] == 'admin') or
                         (roles['site_role'] != 'admin' and
-                         self._environ.login_access_check(asker_jid))):
+                         self._environ.login_access_check(asker_pkey))):
 
                         self._environ.rtenv.modules[self._environ.ttm].\
-                            assign_jid_to_session(
+                            assign_pkey_to_session(
                                 session,
-                                asker_jid
+                                asker_pkey
                                 )
 
                         messages.append(
@@ -309,10 +309,10 @@ class BotCommands:
         text = """
 help                          this command
 
-status [JID]                  JID roles on site. defaults to asker. Only admin
-                              can define JID
+status [pkey]                 pkey roles on site. defaults to asker. Only admin
+                              can define pkey
 
-register [-r=ROLE] [JID]      register [self] or [somebody else](only admin can
+register [-r=ROLE] [pkey]     register [self] or [somebody else](only admin can
                               do this) on site.
 
                               possible roles: 'admin', 'moder', 'user',
@@ -337,7 +337,7 @@ login SESSION_COOKIE          make user with named SESSION_COOKIE logged in on
 
 """
         ret_stanza.body = [
-            wayround_org.xmpp.core.MessageBody(
+            wayround_i2p.xmpp.core.MessageBody(
                 text=text
                 )
             ]

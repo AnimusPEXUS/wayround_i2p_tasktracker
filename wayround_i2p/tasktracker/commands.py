@@ -4,12 +4,14 @@ import logging
 import threading
 import yaml
 
-import wayround_org.softengine.rtenv
+import wayround_i2p.softengine.rtenv
 
-import wayround_org.toxcorebot.bot
 
-import wayround_org.tasktracker.bot_commands
-import wayround_org.tasktracker.modules
+import wayround_i2p.tasktracker.bot_commands
+import wayround_i2p.tasktracker.modules
+
+import wayround_i2p.toxcorebind.toxid
+import wayround_i2p.toxcorebot.bot
 
 
 def commands():
@@ -58,6 +60,13 @@ def site_run(comm, opts, args, adds):
     admin_pkey = cfg.get('admin_pkey', None)
     bot_save_state_file = cfg.get('bot_save_state_file', 'savedate.bin')
 
+    if admin_pkey is None:
+        raise Exception("`admin_pkey' must not be None")
+
+    admin_pkey = wayround_i2p.toxcorebind.toxid.ToxID.new_from_hex(
+        admin_pkey
+        ).pkey_hex
+
     if not db_config.startswith('sqlite://'):
         db_config = 'sqlite:///{}'.format(os.path.join(cwd, db_config))
 
@@ -81,13 +90,13 @@ TaskTracker Configuration Summary:
         db_echo,
         host,
         port,
-        admin_pkey,
+        admin_pkey.upper(),
         bot_save_state_file
         )
         )
 
     try:
-        db = wayround_org.softengine.rtenv.DB_SQLAlchemy(
+        db = wayround_i2p.softengine.rtenv.DB_SQLAlchemy(
             db_config,
             echo=db_echo,
             # FIXME: this is unsafe?
@@ -97,9 +106,9 @@ TaskTracker Configuration Summary:
         print("Can't start DB engine")
         raise
 
-    rtenv = wayround_org.softengine.rtenv.RuntimeEnvironment(db)
+    rtenv = wayround_i2p.softengine.rtenv.RuntimeEnvironment(db)
 
-    wayround_org.tasktracker.modules.TaskTracker(rtenv)
+    wayround_i2p.tasktracker.modules.TaskTracker(rtenv)
 
     exit_event = threading.Event()
 
@@ -107,14 +116,14 @@ TaskTracker Configuration Summary:
 
     rtenv.db.create_all()
 
-    bot_commands = wayround_org.tasktracker.bot_commands.BotCommands()
+    bot_commands = wayround_i2p.tasktracker.bot_commands.BotCommands()
 
-    bot = wayround_org.toxcorebot.bot.Bot(
-        bot_commands,
+    bot = wayround_i2p.toxcorebot.bot.Bot(
+        bot_commands.commands_dict(),
         bot_save_state_file
         )
 
-    environ = wayround_org.tasktracker.env.Environment(
+    environ = wayround_i2p.tasktracker.env.Environment(
         rtenv,
         host=host,
         port=port,

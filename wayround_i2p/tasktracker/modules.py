@@ -8,8 +8,10 @@ from mako.template import Template
 import sqlalchemy
 import sqlalchemy.orm.exc
 
-import wayround_org.softengine.rtenv
-import wayround_org.tasktracker.env
+import wayround_i2p.toxcorebind.toxid
+
+import wayround_i2p.softengine.rtenv
+import wayround_i2p.tasktracker.env
 
 
 class WrongPageAction(Exception):
@@ -24,11 +26,21 @@ class EditingNotExistingProject(Exception):
     pass
 
 
-class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
+def normalize_pkey(value):
+    ret = None
+    if value is not None:
+        if not isinstance(value, str):
+            raise TypeError("`value' must be str")
+        value = wayround_i2p.toxcorebind.toxid.ToxID.new_from_hex(value)
+        ret = value.pkey_hex
+    return ret
+
+
+class TaskTracker(wayround_i2p.softengine.rtenv.ModulePrototype):
 
     def __init__(self, rtenv):
 
-        self.module_name = 'wayround_org_tasktracker_modules_TaskTracker'
+        self.module_name = 'wayround_i2p_tasktracker_modules_TaskTracker'
 
         self.session_lifetime = 24 * 60 * 60
 
@@ -65,7 +77,8 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             'follows'
             ]
 
-        self.template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+        self.template_dir = os.path.join(
+            os.path.dirname(__file__), 'templates')
         self.css_dir = os.path.join(os.path.dirname(__file__), 'css')
         self.js_dir = os.path.join(os.path.dirname(__file__), 'js')
 
@@ -415,45 +428,45 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
                 )
 
         self.rtenv.models[self.module_name] = {
-            'Issue':         Issue,
-            'Project':       Project,
-            'SiteRole':      SiteRole,
-            'IssueRole':     IssueRole,
-            'ProjectRole':   ProjectRole,
-            'Session':       Session,
-            'IssueUpdate':   IssueUpdate,
-            'SiteSetting':   SiteSetting,
+            'Issue': Issue,
+            'Project': Project,
+            'SiteRole': SiteRole,
+            'IssueRole': IssueRole,
+            'ProjectRole': ProjectRole,
+            'Session': Session,
+            'IssueUpdate': IssueUpdate,
+            'SiteSetting': SiteSetting,
             'IssueRelation': IssueRelation
             }
 
         self.rtenv.templates[self.module_name] = {}
 
         for i in [
-            'html',
-            'admin',
-            'project_page',
-            'project_list',
-            'project_roles',
-            'issue_teaser',
-            'issue_teaser_table',
-            'edit_issue',
-            'edit_project',
-            'actions',
-            'session',
-            'issue_teaser',
-            'selector_priority',
-            'selector_status',
-            'selector_resolution',
-            'issue_update_row',
-            'issue_update_table',
-            'site_settings',
-            'site_roles',
-            'project_activity_pager',
-            'project_activity_table',
-            'project_activity_row',
-            'project_issues_pager',
-            'project_issues_page',
-            ]:
+                'html',
+                'admin',
+                'project_page',
+                'project_list',
+                'project_roles',
+                'issue_teaser',
+                'issue_teaser_table',
+                'edit_issue',
+                'edit_project',
+                'actions',
+                'session',
+                'issue_teaser',
+                'selector_priority',
+                'selector_status',
+                'selector_resolution',
+                'issue_update_row',
+                'issue_update_table',
+                'site_settings',
+                'site_roles',
+                'project_activity_pager',
+                'project_activity_table',
+                'project_activity_row',
+                'project_issues_pager',
+                'project_issues_page',
+                ]:
             self.rtenv.templates[self.module_name][i] = Template(
                 filename=os.path.join(self.template_dir, '{}.html'.format(i)),
                 format_exceptions=False
@@ -465,12 +478,12 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             )
 
     def project_issues_page_tpl(
-        self,
-        issue_records,
-        status,
-        page,
-        count
-        ):
+            self,
+            issue_records,
+            status,
+            page,
+            count
+            ):
 
         pager = self.project_issues_pager_tpl(
             page, count, status
@@ -484,11 +497,11 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             )
 
     def project_issues_pager_tpl(
-        self,
-        page=0,
-        count=100,
-        status='open'
-        ):
+            self,
+            page=0,
+            count=100,
+            status='open'
+            ):
 
         if not isinstance(page, int):
             raise TypeError("`page' must be int")
@@ -505,10 +518,10 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             )
 
     def project_activity_pager_tpl(
-        self,
-        page=0,
-        count=100
-        ):
+            self,
+            page=0,
+            count=100
+            ):
 
         if not isinstance(page, int):
             raise TypeError("`page' must be int")
@@ -522,8 +535,8 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             )
 
     def project_activity_table_tpl(
-        self, activities, page, count
-        ):
+            self, activities, page, count
+            ):
 
         rows = []
 
@@ -602,12 +615,12 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             )
 
     def site_roles_tpl(
-        self,
-        admins,
-        moders,
-        users,
-        blocked
-        ):
+            self,
+            admins,
+            moders,
+            users,
+            blocked
+            ):
         return self.rtenv.templates[self.module_name]['site_roles'].render(
             admins=admins,
             moders=moders,
@@ -616,17 +629,17 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             )
 
     def project_roles_tpl(
-        self,
-        admins,
-        moders,
-        users,
-        blocked,
-        site_admins,
-        site_moders,
-        site_users,
-        site_blocked,
-        god
-        ):
+            self,
+            admins,
+            moders,
+            users,
+            blocked,
+            site_admins,
+            site_moders,
+            site_users,
+            site_blocked,
+            god
+            ):
         return self.rtenv.templates[self.module_name]['project_roles'].render(
             admins=admins,
             moders=moders,
@@ -640,12 +653,12 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             )
 
     def site_settings_tpl(
-        self,
-        site_title,
-        site_description,
-        user_can_register_self,
-        user_can_create_projects
-        ):
+            self,
+            site_title,
+            site_description,
+            user_can_register_self,
+            user_can_create_projects
+            ):
         return self.rtenv.templates[self.module_name]['site_settings'].render(
             site_title=site_title,
             site_description=site_description,
@@ -657,15 +670,15 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         return self.rtenv.templates[self.module_name]['register'].render()
 
     def issue_teaser_tpl(
-        self,
-        project_name='',
-        ide='',
-        caption='',
-        resolution='',
-        updated='',
-        assigned='',
-        priority=''
-        ):
+            self,
+            project_name='',
+            ide='',
+            caption='',
+            resolution='',
+            updated='',
+            assigned='',
+            priority=''
+            ):
 
         return self.rtenv.templates[self.module_name]['issue_teaser'].render(
             project_name=project_name, ide=ide, caption=caption,
@@ -721,12 +734,12 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         return self.rtenv.templates[self.module_name]['login'].render()
 
     def project_page_tpl(
-        self,
-        project_name,
-        open_issue_table='',
-        closed_issue_table='',
-        deleted_issue_table=''
-        ):
+            self,
+            project_name,
+            open_issue_table='',
+            closed_issue_table='',
+            deleted_issue_table=''
+            ):
         return self.rtenv.templates[self.module_name]['project_page'].render(
             project_name=project_name,
             open_issue_table=open_issue_table,
@@ -748,7 +761,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
     def actions_tpl(self, actions, session_actions):
 
         for i in actions:
-            if not isinstance(i, wayround_org.tasktracker.env.PageAction):
+            if not isinstance(i, wayround_i2p.tasktracker.env.PageAction):
                 raise WrongPageAction("Wrong page action type")
 
         return self.rtenv.templates[self.module_name]['actions'].render(
@@ -757,13 +770,13 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             )
 
     def session_tpl(
-        self,
-        rts_object=None
-        ):
+            self,
+            rts_object=None
+            ):
 
-        if not  isinstance(rts_object, wayround_org.tasktracker.env.Session):
+        if not isinstance(rts_object, wayround_i2p.tasktracker.env.Session):
             raise ValueError(
-                "rts_object must be of type wayround_org.tasktracker.env.Session"
+                "rts_object must be of type wayround_i2p.tasktracker.env.Session"
                 )
 
         return self.rtenv.templates[self.module_name]['session'].render(
@@ -771,13 +784,13 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             )
 
     def edit_project_tpl(
-        self,
-        mode,
-        name='',
-        title='',
-        description='',
-        guests_access_allowed=False
-        ):
+            self,
+            mode,
+            name='',
+            title='',
+            description='',
+            guests_access_allowed=False
+            ):
 
         if not mode in ['new', 'edit']:
             raise ValueError("Wrong mode value: `{}'".format(mode))
@@ -931,10 +944,12 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             )
 
     def css(self, filename):
-        return bottle.static_file(filename, root=self.css_dir)
+        ret = os.path.join(self.css_dir, filename)
+        return ret
 
     def js(self, filename):
-        return bottle.static_file(filename, root=self.js_dir)
+        ret = os.path.join(self.css_dir, filename)
+        return ret
 
     def get_random_bytes(self):
 
@@ -983,7 +998,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             pass
         else:
 
-            if ret.session_cookie == None or ret.session_valid_till == None:
+            if ret.session_cookie is None or ret.session_valid_till is None:
                 ret = None
 
         return ret
@@ -992,7 +1007,9 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         return self._get_session_by_x(cookie, 'cookie')
 
     def get_session_by_pkey(self, pkey):
-        return self._get_session_by_x(pkey, 'pkey')
+        pkey = normalize_pkey(pkey)
+        ret = self._get_session_by_x(pkey, 'pkey')
+        return ret
 
     def new_session(self):
 
@@ -1016,8 +1033,8 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         """
 
         if not isinstance(
-            session, self.rtenv.models[self.module_name]['Session']
-            ):
+                session, self.rtenv.models[self.module_name]['Session']
+                ):
             raise TypeError(
                 "`session' parameter must be of type `{}', but it is `{}'".format(
                     type(
@@ -1037,6 +1054,8 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         return
 
     def assign_pkey_to_session(self, session, pkey):
+
+        pkey = normalize_pkey(pkey)
 
         sessions = self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['Session']
@@ -1059,7 +1078,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             ).all()
 
         for i in sessions[:]:
-            if i.session_cookie == None or i.session_valid_till == None:
+            if i.session_cookie is None or i.session_valid_till is None:
                 self.rtenv.db.sess.delete(i)
                 sessions.remove(i)
 
@@ -1070,11 +1089,11 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
 
         for i in sessions[:]:
             if i.session_valid_till > (
-                datetime.datetime.now() +
-                datetime.timedelta(
-                    seconds=self.session_lifetime
-                    )
-                ):
+                    datetime.datetime.now() +
+                    datetime.timedelta(
+                        seconds=self.session_lifetime
+                        )
+                    ):
 
                 self.rtenv.db.sess.delete(i)
                 sessions.remove(i)
@@ -1125,8 +1144,10 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
                     project_name=name,
                     status=status
                     ).order_by(
-                        self.rtenv.models[self.module_name]['Issue'].priority.asc(),
-                        self.rtenv.models[self.module_name]['Issue'].updation_date.desc()
+                        self.rtenv.models[
+                            self.module_name]['Issue'].priority.asc(),
+                        self.rtenv.models[self.module_name][
+                            'Issue'].updation_date.desc()
                         ).slice(start, stop).all()
 
         return i
@@ -1193,15 +1214,15 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         return p
 
     def new_issue(
-        self,
-        project_name,
-        title,
-        priority,
-        status,
-        resolution,
-        description,
-        creation_date
-        ):
+            self,
+            project_name,
+            title,
+            priority,
+            status,
+            resolution,
+            description,
+            creation_date
+            ):
 
         try:
             self.rtenv.db.sess.query(
@@ -1227,15 +1248,15 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         return issue
 
     def edit_issue(
-        self,
-        issue_id,
-        title,
-        priority,
-        status,
-        resolution,
-        description,
-        updation_date
-        ):
+            self,
+            issue_id,
+            title,
+            priority,
+            status,
+            resolution,
+            description,
+            updation_date
+            ):
 
         issue = None
         try:
@@ -1294,7 +1315,6 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         return ret
 
     def issue_set_roles(self, issue_id, roles):
-
         """
         `roles' must be a dict of lists
         """
@@ -1322,8 +1342,9 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
                             break
 
                     if not h_found:
-                        new_role = self.rtenv.models[self.module_name]['IssueRole']()
-                        new_role.pkey = j
+                        new_role = self.rtenv.models[
+                            self.module_name]['IssueRole']()
+                        new_role.pkey = normalize_pkey(j)
                         new_role.role = i
                         new_role.issue_id = issue_id
                         self.rtenv.db.sess.add(new_role)
@@ -1333,30 +1354,30 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         return
 
     def make_issue_update(
-        self,
-        project_name,
-        issue_id,
-        author_pkey,
-        title_old,
-        title,
-        priority_old,
-        priority,
-        status_old,
-        status,
-        resolution_old,
-        resolution,
-        description_diff,
-        assigned_to_diff,
-        watchers_diff,
-        comment,
-        date
-        ):
+            self,
+            project_name,
+            issue_id,
+            author_pkey,
+            title_old,
+            title,
+            priority_old,
+            priority,
+            status_old,
+            status,
+            resolution_old,
+            resolution,
+            description_diff,
+            assigned_to_diff,
+            watchers_diff,
+            comment,
+            date
+            ):
 
         issueup = self.rtenv.models[self.module_name]['IssueUpdate']()
 
         issueup.project_name = project_name
         issueup.issue_id = issue_id
-        issueup.author_pkey = author_pkey
+        issueup.author_pkey = normalize_pkey(author_pkey)
         issueup.title_old = title_old
         issueup.title = title
         issueup.priority_old = priority_old
@@ -1397,10 +1418,13 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
             ).filter_by(
                 project_name=project_name
                 ).order_by(
-                    self.rtenv.models[self.module_name]['IssueUpdate'].date.desc()
+                    self.rtenv.models[self.module_name][
+                        'IssueUpdate'].date.desc()
                     ).slice(start, stop).all()
 
     def get_site_role(self, pkey):
+
+        pkey = normalize_pkey(pkey)
 
         ret = None
 
@@ -1493,6 +1517,8 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
 
     def add_site_role(self, pkey, role='user'):
 
+        pkey = normalize_pkey(pkey)
+
         siterole = self.rtenv.models[self.module_name]['SiteRole']()
 
         siterole.pkey = pkey
@@ -1505,6 +1531,8 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         return
 
     def get_project_role(self, pkey, project_name):
+
+        pkey = normalize_pkey(pkey)
 
         ret = None
 
@@ -1519,6 +1547,8 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
 
     def get_project_roles_of_pkey(self, pkey):
 
+        pkey = normalize_pkey(pkey)
+
         ret = self.rtenv.db.sess.query(
             self.rtenv.models[self.module_name]['ProjectRole']
             ).filter_by(pkey=pkey).all()
@@ -1526,6 +1556,8 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         return ret
 
     def get_project_roles_of_pkey_dict(self, pkey):
+
+        pkey = normalize_pkey(pkey)
 
         roles = self.get_project_roles_of_pkey(pkey)
 
@@ -1631,7 +1663,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         except sqlalchemy.orm.exc.NoResultFound:
             pass
 
-        if res == None:
+        if res is None:
             res = self.rtenv.models[self.module_name]['SiteSetting']()
             res.name = name
             res.value = value
@@ -1673,8 +1705,8 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         ret = None
 
         if issue_relation_record.typ in [
-            'duplicated', 'blocked', 'precedes', 'relates'
-            ]:
+                'duplicated', 'blocked', 'precedes', 'relates'
+                ]:
 
             ret = self.rtenv.models[self.module_name]['IssueRelation']()
 
@@ -1737,7 +1769,7 @@ class TaskTracker(wayround_org.softengine.rtenv.ModulePrototype):
         except sqlalchemy.orm.exc.NoResultFound:
             pass
 
-        if res == None:
+        if res is None:
             self.rtenv.db.sess.add(ir)
             self.rtenv.db.sess.commit()
 

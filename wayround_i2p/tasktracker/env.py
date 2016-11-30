@@ -4,26 +4,28 @@ import urllib.parse
 import datetime
 import difflib
 
-import wayround_org.utils.file
-import wayround_org.utils.http
+import wayround_i2p.utils.file
+import wayround_i2p.utils.http
 
-import wayround_org.carafe.carafe
-import wayround_org.wsgi.server
+import wayround_i2p.http.cookies
+
+import wayround_i2p.carafe.carafe
+import wayround_i2p.wsgi.server
 
 
-from wayround_org.utils.list import (
+from wayround_i2p.utils.list import (
     list_strip_remove_empty_remove_duplicated_lines
     )
 
-import wayround_org.softengine.rtenv
+import wayround_i2p.softengine.rtenv
 
-MIME_HTML = wayround_org.carafe.carafe.MIME_HTML
+MIME_HTML = wayround_i2p.carafe.carafe.MIME_HTML
 
 
 class Session:
 
     def __init__(self):
-        self.id = None
+        self.session_cookie = None
         self.pkey = None
         self.site_role = None
         self.project_roles = {}
@@ -49,9 +51,9 @@ class Environment:
             admin_pkey=None
             ):
 
-        self.ttm = 'wayround_org_tasktracker_modules_TaskTracker'
+        self.ttm = 'wayround_i2p_tasktracker_modules_TaskTracker'
 
-        self.session_cookie_name = 'wayround_org_tasktracker_session_cookie'
+        self.session_cookie_name = 'wayround_i2p_tasktracker_session_cookie'
 
         self._bot = None
 
@@ -63,20 +65,21 @@ class Environment:
         # self.port = port
 
         self.carafe_app = \
-            wayround_org.carafe.carafe.Carafe(self.router_entry)
+            wayround_i2p.carafe.carafe.Carafe(self.router_entry)
 
         self.wsgi_server = \
-            wayround_org.wsgi.server.CompleteServer(
+            wayround_i2p.wsgi.server.CompleteServer(
                 self.carafe_app.target_for_wsgi_server,
                 address=(host, port)
                 )
 
         self.router = \
-            wayround_org.carafe.carafe.Router(self.default_router_target)
+            wayround_i2p.carafe.carafe.Router(self.default_router_target)
 
         self.router.add(
             'GET',
-            [],
+            [('=', 'index')
+             ],
             self.index
             )  # this rule is for empty path or foe root dir. not tested
         # probably invalid
@@ -87,7 +90,7 @@ class Environment:
                 ('=', 'js'),
                 ('fm', '*', 'filename')
                 ],
-            self.rtenv.modules[self.ttm].js
+            self.js
             )
 
         self.router.add(
@@ -96,7 +99,7 @@ class Environment:
                 ('=', 'css'),
                 ('fm', '*', 'filename')
                 ],
-            self.rtenv.modules[self.ttm].css
+            self.css
             )
 
         self.router.add(
@@ -274,18 +277,6 @@ class Environment:
 
     def start(self):
         self.wsgi_server.start()
-        '''
-        self.server = wayround_org.utils.bottle.WSGIRefServer(
-            host=self.host, port=self.port
-            )
-
-        ret = bottle.run(
-            self.app,
-            host=self.host,
-            port=self.port,
-            server=self.server
-            )
-        '''
         return
 
     def stop(self):
@@ -305,6 +296,52 @@ class Environment:
         ret = '404: not found'
         return ret
 
+    def css(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
+        filename = route_result['filename']
+        filename = self.rtenv.modules[self.ttm].js(filename)
+        # TODO: replace with smart StaticFile object
+        ret = open(filename, 'rb')
+        response_start(
+            '200',
+            [('Content-Type', 'text/css')]
+            )
+        '''
+        ret = wayround_i2p.carafe.carafe.static_file(
+            response_start,
+            os.path.basename(filename),
+            os.path.dirname(filename)
+            )
+        '''
+        return ret
+
+    def js(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
+        filename = route_result['filename']
+        filename = self.rtenv.modules[self.ttm].js(filename)
+        # TODO: replace with smart StaticFile object
+        ret = open(filename, 'rb')
+        response_start(
+            '200',
+            [('Content-Type', 'application/javascript')]
+            )
+        '''
+        ret = wayround_i2p.carafe.carafe.static_file(
+            response_start,
+            os.path.basename(filename),
+            root=os.path.dirname(filename)
+            )
+        '''
+        return ret
+
     def get_page_actions(
             self,
             mode=None,
@@ -318,7 +355,7 @@ class Environment:
 
         lst = []
 
-        lst.append(PageAction('Project List', '/'))
+        lst.append(PageAction('Project List', '/index'))
 
         if mode == 'index' and rts_object.site_role == 'admin':
             lst.append(PageAction('New Project', '/new_project'))
@@ -405,38 +442,39 @@ class Environment:
 
         return ret
 
-    def generate_rts_object(self):
+    def generate_rts_object(self, wsgi_request):
         """
         rts - run time session
         """
 
         s = None
 
-        if not self.session_cookie_name in bottle.request.cookies:
-            s = self.rtenv.modules[self.ttm].new_session()
-            bottle.response.set_cookie(
-                self.session_cookie_name,
-                s.session_cookie
+        cookies = wayround_i2p.http.cookies.Cookies.new_from_wsgi_request(
+            wsgi_request
+            )
+
+        cookies = cookies.cookiesYAML
+
+        if self.session_cookie_name in cookies:
+            print(
+                'cookie {}'.format(cookies[self.session_cookie_name].value)
                 )
-        else:
 
             s = self.rtenv.modules[self.ttm].get_session_by_cookie(
-                bottle.request.cookies.get(self.session_cookie_name, None)
+                cookies[self.session_cookie_name].value
                 )
 
-            if s:
-                self.rtenv.modules[self.ttm].renew_session(s)
-            else:
-
-                s = self.rtenv.modules[self.ttm].new_session()
-
-                bottle.response.set_cookie(
-                    self.session_cookie_name,
-                    s.session_cookie
+        if s is None:
+            print(
+                "cookie not provided({}) or s is None({})".format(
+                    self.session_cookie_name in cookies,
+                    s is None
                     )
+                )
+            s = self.rtenv.modules[self.ttm].new_session()
 
         ret = Session()
-        ret.id = s.session_cookie
+        ret.session_cookie = s.session_cookie
         ret.pkey = s.pkey
         ret.session_valid_till = s.session_valid_till
 
@@ -446,6 +484,21 @@ class Environment:
         ret.site_role = roles['site_role']
 
         return ret
+
+    def render_output_session_cookie(self, session, lst):
+        if not isinstance(session, Session):
+            raise TypeError("`session' must be of Session type")
+
+        cookies = wayround_i2p.http.cookies.CookiesYAML()
+        cookies.add_from_values(
+            self.session_cookie_name,
+            session.session_cookie
+            )
+        cookies = cookies.cookies
+
+        cookies.append_to_s2c_field_tuple_list(lst)
+
+        return
 
     def get_site_roles_for_pkey(self, pkey=None, all_site_projects=False):
 
@@ -493,7 +546,7 @@ class Environment:
             route_result
             ):
 
-        rts = self.generate_rts_object()
+        rts = self.generate_rts_object(wsgi_environment)
 
         projects = self.rtenv.modules[self.ttm].get_projects()
 
@@ -516,20 +569,31 @@ class Environment:
             body=project_list
             )
 
-        response_start(200, [('Content-Type', MIME_HTML)])
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
 
         return ret
 
     def site_settings_access_check(self, rts):
 
         if rts.site_role != 'admin':
-            raise bottle.HTTPError(403, "Not Allowed")
+            raise wayround_i2p.carafe.carafe.HTTPError("403 Not Allowed")
 
         return
 
-    def site_settings(self):
+    def site_settings(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
 
-        rts = self.generate_rts_object()
+        rts = self.generate_rts_object(wsgi_environment)
 
         self.site_settings_access_check(rts)
 
@@ -572,11 +636,24 @@ class Environment:
             body=settings_page
             )
 
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
+
         return ret
 
-    def site_settings_post(self):
+    def site_settings_post(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
 
-        rts = self.generate_rts_object()
+        rts = self.generate_rts_object(wsgi_environment)
 
         self.site_settings_access_check(rts)
 
@@ -589,7 +666,7 @@ class Environment:
 
         decoded_params = bottle.request.params.decode('utf-8')
 
-        wayround_org.utils.http.convert_cb_params_to_boolean(
+        wayround_i2p.utils.http.convert_cb_params_to_boolean(
             decoded_params,
             [
                 'user_can_register_self',
@@ -620,13 +697,27 @@ class Environment:
         bottle.response.status = 303
         bottle.response.set_header('Location', '')
 
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
+
+
         return
 
     site_roles_access_check = site_settings_access_check
 
-    def site_roles(self):
+    def site_roles(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
 
-        rts = self.generate_rts_object()
+        rts = self.generate_rts_object(wsgi_environment)
 
         self.site_roles_access_check(rts)
 
@@ -674,11 +765,25 @@ class Environment:
             body=roles_page
             )
 
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
+
+
         return ret
 
-    def site_roles_post(self):
+    def site_roles_post(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
 
-        rts = self.generate_rts_object()
+        rts = self.generate_rts_object(wsgi_environment)
 
         self.site_roles_access_check(rts)
 
@@ -736,23 +841,37 @@ class Environment:
         bottle.response.status = 303
         bottle.response.set_header('Location', '')
 
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
+
+
         return
 
     def new_project_access_check(self, rts):
 
         if (rts.site_role != 'admin' and
-                self.rtenv.modules[self.ttm].get_site_setting(
-                    'user_can_create_projects',
-                    False
-                    ) != '1'
+            self.rtenv.modules[self.ttm].get_site_setting(
+                        'user_can_create_projects',
+                        False
+                        ) != '1'
             ):
-            raise bottle.HTTPError(403, "Not Allowed")
+            raise wayround_i2p.carafe.carafe.HTTPError(403, "Not Allowed")
 
         return
 
-    def new_project(self):
+    def new_project(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
 
-        rts = self.generate_rts_object()
+        rts = self.generate_rts_object(wsgi_environment)
 
         self.new_project_access_check(rts)
 
@@ -771,11 +890,25 @@ class Environment:
             body=edit_project_tpl
             )
 
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
+
+
         return ret
 
-    def new_project_post(self):
+    def new_project_post(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
 
-        rts = self.generate_rts_object()
+        rts = self.generate_rts_object(wsgi_environment)
 
         self.new_project_access_check(rts)
 
@@ -785,7 +918,7 @@ class Environment:
 
         decoded_params = bottle.request.params.decode('utf-8')
 
-        wayround_org.utils.http.convert_cb_params_to_boolean(
+        wayround_i2p.utils.http.convert_cb_params_to_boolean(
             decoded_params,
             [
                 'guests_access_allowed'
@@ -812,6 +945,15 @@ class Environment:
             'Location', '/project/{}'.format(urllib.parse.quote(name))
             )
 
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
+
+
         return ret
 
     def edit_project_access_check(self, rts, project_record):
@@ -830,9 +972,16 @@ class Environment:
 
         return
 
-    def edit_project(self, project_name):
+    def edit_project(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
 
-        rts = self.generate_rts_object()
+        project_name = route_result['project_name']
+
+        rts = self.generate_rts_object(wsgi_environment)
 
         ret = ''
 
@@ -865,11 +1014,27 @@ class Environment:
                 body=edit_project_tpl
                 )
 
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
+
+
         return ret
 
-    def edit_project_post(self, project_name):
+    def edit_project_post(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
 
-        rts = self.generate_rts_object()
+        project_name = route_result['project_name']
+
+        rts = self.generate_rts_object(wsgi_environment)
 
         for i in ['title', 'description']:
             if not i in bottle.request.params:
@@ -877,7 +1042,7 @@ class Environment:
 
         decoded_params = bottle.request.params.decode('utf-8')
 
-        wayround_org.utils.http.convert_cb_params_to_boolean(
+        wayround_i2p.utils.http.convert_cb_params_to_boolean(
             decoded_params,
             [
                 'guests_access_allowed'
@@ -906,13 +1071,29 @@ class Environment:
             'Location', '/project/{}'.format(urllib.parse.quote(project_name))
             )
 
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
+
+
         return
 
     project_roles_access_check = edit_project_access_check
 
-    def project_roles(self, project_name):
+    def project_roles(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
 
-        rts = self.generate_rts_object()
+        project_name = route_result['project_name']
+
+        rts = self.generate_rts_object(wsgi_environment)
 
         p = self.rtenv.modules[self.ttm].get_project(project_name)
 
@@ -998,11 +1179,26 @@ class Environment:
             body=roles_page
             )
 
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
+
         return ret
 
-    def project_roles_post(self, project_name):
+    def project_roles_post(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
 
-        rts = self.generate_rts_object()
+        project_name = route_result['project_name']
+
+        rts = self.generate_rts_object(wsgi_environment)
 
         self.project_roles_access_check(rts)
 
@@ -1060,6 +1256,14 @@ class Environment:
         bottle.response.status = 303
         bottle.response.set_header('Location', '')
 
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
+
         return
 
     def login_access_check(self, pkey):
@@ -1094,12 +1298,14 @@ class Environment:
         bottle.response.set_header('Location', '/')
 #        bottle.response.set_header('Cache-Control', 'no-cache')
 #        bottle.redirect('/', code=200)
+        return
 
     def redirect_to_project_view(self, project_name):
         bottle.response.status = 303
         bottle.response.set_header(
             'Location', '/project/{}'.format(urllib.parse.quote(project_name))
             )
+        return
 
     def project_view_access_check(self, rts, project_record):
 
@@ -1123,11 +1329,18 @@ class Environment:
 
         return
 
-    def project_view(self, project_name):
+    def project_view(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
+
+        project_name = route_result['project_name']
 
         ret = ''
 
-        rts = self.generate_rts_object()
+        rts = self.generate_rts_object(wsgi_environment)
 
         p = self.rtenv.modules[self.ttm].get_project(project_name)
 
@@ -1181,12 +1394,29 @@ class Environment:
                 body=project_page
                 )
 
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
+
+
         return ret
 
-    def project_issues(self, project_name):
+    def project_issues(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
+
+        project_name = route_result['project_name']
+
         ret = ''
 
-        rts = self.generate_rts_object()
+        rts = self.generate_rts_object(wsgi_environment)
 
         p = self.rtenv.modules[self.ttm].get_project(project_name)
 
@@ -1247,12 +1477,29 @@ class Environment:
                 body=issue_page
                 )
 
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
+
+
         return ret
 
-    def project_activities(self, project_name):
+    def project_activities(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
+
+        project_name = route_result['project_name']
+
         ret = ''
 
-        rts = self.generate_rts_object()
+        rts = self.generate_rts_object(wsgi_environment)
 
         p = self.rtenv.modules[self.ttm].get_project(project_name)
 
@@ -1298,6 +1545,15 @@ class Environment:
                 body=activities_table
                 )
 
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
+
+
         return ret
 
     def new_issue_access_check(self, rts, project_record):
@@ -1317,11 +1573,18 @@ class Environment:
 
         return
 
-    def new_issue(self, project_name):
+    def new_issue(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
+
+        project_name = route_result['project_name']
 
         ret = ''
 
-        rts = self.generate_rts_object()
+        rts = self.generate_rts_object(wsgi_environment)
 
         p = self.rtenv.modules[self.ttm].get_project(project_name)
 
@@ -1350,11 +1613,27 @@ class Environment:
                 body=edit_issue_tpl
                 )
 
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
+
+
         return ret
 
-    def new_issue_post(self, project_name):
+    def new_issue_post(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
 
-        rts = self.generate_rts_object()
+        project_name = route_result['project_name']
+
+        rts = self.generate_rts_object(wsgi_environment)
 
         p = self.rtenv.modules[self.ttm].get_project(project_name)
 
@@ -1438,15 +1717,31 @@ class Environment:
                 )
             )
 
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
+
         return ret
 
     view_issue_access_check = project_view_access_check
 
-    def view_issue(self, project_name, issue_id):
+    def view_issue(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
+
+        project_name = route_result['project_name']
+        issue_id = route_result['issue_id']
 
         ret = ''
 
-        rts = self.generate_rts_object()
+        rts = self.generate_rts_object(wsgi_environment)
 
         project = self.rtenv.modules[self.ttm].get_project(project_name)
 
@@ -1512,29 +1807,37 @@ class Environment:
                 body=edit_issue_tpl
                 )
 
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
+
         return ret
 
     def make_issue_update(
-        self,
-        rts,
-        project_name,
-        issue_id,
-        author_pkey,
-        title_old,
-        title,
-        priority_old,
-        priority,
-        status_old,
-        status,
-        resolution_old,
-        resolution,
-        description_old,
-        description,
+            self,
+            rts,
+            project_name,
+            issue_id,
+            author_pkey,
+            title_old,
+            title,
+            priority_old,
+            priority,
+            status_old,
+            status,
+            resolution_old,
+            resolution,
+            description_old,
+            description,
 
-        current_issue_people,
+            current_issue_people,
 
-        assigned_to_text,
-        watchers_text,
+            assigned_to_text,
+            watchers_text,
 
             comment,
             date
@@ -1601,7 +1904,15 @@ class Environment:
 
     edit_issue_post_access_check = new_issue_access_check
 
-    def edit_issue_post(self, project_name, issue_id):
+    def edit_issue_post(
+            self,
+            wsgi_environment,
+            response_start,
+            route_result
+            ):
+
+        project_name = route_result['project_name']
+        issue_id = route_result['issue_id']
 
         ret = None
 
@@ -1785,6 +2096,15 @@ class Environment:
         else:
             pass
 
+        http_header = [
+            ('Content-Type', MIME_HTML)
+            ]
+
+        self.render_output_session_cookie(rts, http_header)
+
+        response_start(200, http_header)
+
+
         return ret
 
 
@@ -1796,7 +2116,7 @@ def install_launcher(path):
     src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'site'))
     dst_dir = path
 
-    wayround_org.utils.file.copytree(
+    wayround_i2p.utils.file.copytree(
         src_dir,
         dst_dir,
         overwrite_files=True,
